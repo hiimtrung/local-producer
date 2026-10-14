@@ -1,0 +1,98 @@
+/* Base: page defaults on top of the Lucent tokens. The one non-token colour is the studio grey of the stage, the
+   backdrop FLUX.2 images are generated on (rgb 0.53/0.54/0.54, blender/local_producer/prompts.py EDIT_BACKGROUND). */
+
+:root {
+  --studio: #878a8a;
+  --studio-light: #a3a6a6;
+  --studio-dark: #5b5e5e;
+  --panel-w: 380px;
+  /* the app's width cap: on a 21:9 screen the content stays readable and the backdrop fills the rest */
+  --app-max: 1680px;
+  --app-bar-h: 56px;
+  --tab-bar-h: 76px;
+  /* a studio sweep: the floor is lighter where the light falls, the wall darker towards the top */
+  --studio-sweep:
+    radial-gradient(ellipse 70% 55% at 40% 62%, var(--studio-light), transparent 70%),
+    linear-gradient(180deg, var(--studio-dark) 0%, var(--studio) 45%, var(--studio) 100%);
+  --scroll-thumb: color-mix(in srgb, var(--label) 24%, transparent);
+  --scroll-thumb-hover: color-mix(in srgb, var(--label) 42%, transparent);
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  color: var(--label);
+  font-family: var(--font-sans);
+}
+/* The wallpaper the glass sits on: Lucent's own wall tokens (the same as its .lg-stage demo backdrop), fixed so it
+   stays put while pages scroll. Without it, glass over the plain light background has nothing to refract and reads
+   as flat white. */
+body {
+  background-color: var(--wall-base);
+  background-image:
+    radial-gradient(40% 60% at 12% 18%, var(--wall-a), transparent 70%),
+    radial-gradient(45% 55% at 88% 22%, var(--wall-b), transparent 70%),
+    radial-gradient(50% 60% at 60% 100%, var(--wall-c), transparent 72%);
+  background-attachment: fixed;
+}
+* {
+  box-sizing: border-box;
+}
+a {
+  color: var(--accent);
+}
+
+/* Scrollbars: a thin capsule floating inside a clear track, like the glass around it; no arrows, a hairline rim so
+   it reads on both the glass and the stage, wider while hovered or dragged. WebKit/Blink get the custom one;
+   browsers without ::-webkit-scrollbar (Firefox) get the standard thin bar in the same colours. */
+::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+  background: transparent;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+  margin: var(--space-3);
+}
+::-webkit-scrollbar-thumb {
+  min-height: 40px;
+  border: 4px solid transparent;
+  border-radius: var(--radius-capsule);
+  background: var(--scroll-thumb) padding-box;
+  box-shadow: inset 0 0 0 1px var(--glass-rim-hi);
+}
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  border-width: 3px;
+  background-color: var(--scroll-thumb-hover);
+}
+::-webkit-scrollbar-button,
+::-webkit-scrollbar-corner {
+  display: none;
+  background: transparent;
+}
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) transparent;
+  }
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+code,
+.code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

@@ -1,0 +1,77 @@
+# Project metadata and tool configuration. This repository is not a Python package: the server runs in its container
+# (server/), the add-on inside Blender (blender/local_producer/). `uv sync` creates .venv with the dev tools below.
+[project]
+name = "local-producer"
+version = "0.1.0"
+description = "Science/engineering explainer videos from notes; local text/image-to-3D on an AMD iGPU"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.12"
+
+[dependency-groups]
+dev = [
+    "ruff==0.14.6",
+    "mypy==2.3.1",
+    "pytest==8.4.2",
+    "pre-commit==4.3.0",
+    "httpx==0.28.1",
+    # same versions as server/requirements.txt, so the server is tested with what the image runs
+    "fastapi==0.143.0",
+    "uvicorn==0.54.0",
+    "python-multipart==0.0.32",
+    "pillow==12.3.0",
+    "numpy==2.5.4",  # matte_server.py, type-checked here (rembg itself is only in the image)
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["tools/blmcp/.venv", "models", "dist"]
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, isort, bugbear, bandit (security), pyupgrade, simplify
+select = ["E", "W", "F", "I", "B", "S", "UP", "SIM"]
+ignore = [
+    "S603",  # subprocess with an argument list (no shell) is how the server runs the pinned CLIs
+    "S310",  # urllib with URLs: every URL is fixed in code or checked against the manifest allowlist
+    "S104",  # 0.0.0.0 inside the container; the host publishes 127.0.0.1 only
+    "SIM105",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S108"]
+"blender/**" = ["S108"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.File", "fastapi.Form", "fastapi.Body", "fastapi.Query"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "prompts", "client"]
+
+[tool.mypy]
+# The server is fully typed: `make typecheck` (mypy --strict). The web UI's API types are generated from the same
+# pydantic models (scripts/gen_api_types.py), so a change here shows up as a TypeScript error there.
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+mypy_path = "server"
+files = ["server/app", "server/matte_server.py", "scripts/gen_api_types.py"]
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = ["rembg", "rembg.*"]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["server", "blender/local_producer", "scripts", "tests"]
+addopts = "-q"

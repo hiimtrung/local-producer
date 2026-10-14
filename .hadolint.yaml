@@ -1,0 +1,5 @@
+# hadolint configuration (CI: .github/workflows/ci.yml).
+ignored:
+  # Pinning apt package versions breaks the build whenever Ubuntu publishes a security update (old versions are
+  # removed from the archive). The base image is pinned by digest instead and the apt layer takes security fixes.
+  - DL3008

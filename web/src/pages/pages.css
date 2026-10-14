@@ -1,0 +1,117 @@
+/* Page-level layout pieces shared by several pages. */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+.stack,
+.addon-install {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.addon-install {
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.row-actions {
+  display: flex;
+  align-items: center; /* badges are shorter than buttons: centre them on the same line */
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.server-nav {
+  align-self: flex-start;
+  max-width: 100%;
+}
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(180px, 42vw), 1fr));
+  gap: var(--space-4);
+}
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-4);
+}
+.composed summary,
+.log {
+  margin: 0;
+  max-height: 60vh;
+  overflow: auto;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--label-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.log-details summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.composed p {
+  margin-top: var(--space-2);
+}
+.steps {
+  margin: 0 0 var(--space-4);
+  padding-left: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* the log page: a console that fills the space between the header and the tab bar */
+.console {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--app-bar-h) - var(--tab-bar-h) - 220px);
+  min-height: 360px;
+  overflow: hidden;
+}
+.console > .log-view {
+  flex: 1;
+}
+.console > .lg-error,
+.console > p {
+  padding: 0 var(--space-5);
+}
+.console__bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--separator);
+}
+.console__filter {
+  margin-left: auto;
+  width: min(240px, 100%);
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 60%, transparent);
+  animation: live-pulse 1.8s ease-out infinite;
+}
+.live-dot--off {
+  background: var(--warning);
+  animation: none;
+}
+@keyframes live-pulse {
+  70% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}

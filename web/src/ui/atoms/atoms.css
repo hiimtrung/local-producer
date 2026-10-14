@@ -1,0 +1,48 @@
+/* Atoms: field text, error text, icons. */
+.field__label {
+  color: var(--label);
+}
+.field__hint,
+.muted {
+  color: var(--label-secondary);
+}
+.field__hint {
+  margin-top: calc(-1 * var(--space-1));
+}
+.error-text {
+  color: var(--danger);
+}
+.app-icon {
+  flex: none;
+}
+.checker {
+  background: repeating-conic-gradient(var(--fill-track) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
+}
+
+.progress-ring {
+  flex: none;
+  transform: rotate(-90deg);
+}
+.progress-ring circle {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.progress-ring__track {
+  stroke: var(--fill-track);
+}
+.progress-ring__fill {
+  stroke: var(--accent);
+  transition: stroke-dashoffset 0.6s ease;
+}
+.progress-ring--spin {
+  animation: ring-spin 1s linear infinite;
+}
+@keyframes ring-spin {
+  from {
+    transform: rotate(-90deg);
+  }
+  to {
+    transform: rotate(270deg);
+  }
+}

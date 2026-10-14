@@ -1,0 +1,54 @@
+# Only source belongs in git. Weights, binaries, generated media, environments and logs never do.
+
+# Machine-local models, CLI builds and server state (tens of GB; see models/README.md)
+models/*
+!models/README.md
+
+# Build output and environments
+dist/
+node_modules/
+build/
+.venv/
+venv/
+*.egg-info/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Generated media, meshes and Blender backups
+*.glb
+*.gltf
+*.ply
+*.obj
+*.fbx
+*.blend1
+*.mp4
+*.wav
+renders/
+
+# Downloads in progress and temporary files
+*.part
+*.tmp
+*.log
+
+# Secrets and local configuration
+.env
+.env.*
+*.pem
+*.key
+*.p12
+secrets/
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Personal Claude Code settings
+.claude/settings.local.json

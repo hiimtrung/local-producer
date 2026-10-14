@@ -1,0 +1,36 @@
+# Run `uv run pre-commit install` once per clone; CI runs the same hooks on every push and pull request.
+# Revisions are frozen to commit SHAs (supply-chain safety); update with `uv run pre-commit autoupdate --freeze`.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=2048"]  # weights, meshes and renders belong in models/ or releases, not in git
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: check-json
+      - id: check-toml
+      - id: check-yaml
+      - id: detect-private-key
+      - id: end-of-file-fixer
+        exclude: ^web/vendor/  # vendored files stay byte-identical (web/vendor/VENDOR.json pins them)
+      - id: trailing-whitespace
+        exclude: ^web/vendor/  # vendored files stay byte-identical (web/vendor/VENDOR.json pins them)
+      - id: mixed-line-ending
+        exclude: ^web/vendor/  # vendored files stay byte-identical (web/vendor/VENDOR.json pins them)
+        args: ["--fix=lf"]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: fa1ed65ba95bfa7771a71003a9d74402541f5a5c  # frozen: v0.14.6 (same as pyproject.toml)
+    hooks:
+      - id: ruff-check
+      - id: ruff-format
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: 745eface02aef23e168a8afb6b5737818efbea95  # frozen: v0.11.0.1
+    hooks:
+      - id: shellcheck
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # frozen: v8.30.1
+    hooks:
+      - id: gitleaks

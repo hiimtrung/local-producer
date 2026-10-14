@@ -1,0 +1,283 @@
+/* Organisms: image picker, library grid and detail dialog, tool cards, viewer, tab bar, toasts. */
+
+.image-picker,
+.schema-form,
+.tool {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.schema-form,
+.tool {
+  gap: var(--space-4);
+}
+.thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: var(--space-2);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.tool__result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.tool__result img {
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: var(--radius-sm);
+}
+
+/* viewers: fill the stage edge to edge (the stage padding is for static content), tools float top right */
+.viewer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.viewer:fullscreen {
+  background: var(--studio-sweep);
+}
+.viewer__tools {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 1;
+  /* in a narrow box the toolbar scrolls sideways instead of spilling out */
+  max-width: calc(100% - 2 * var(--space-3));
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-radius: var(--radius-capsule);
+}
+.viewer__tools::-webkit-scrollbar {
+  display: none;
+}
+.image-view {
+  touch-action: none;
+  cursor: grab;
+  outline: none;
+}
+.image-view[data-dragging] {
+  cursor: grabbing;
+}
+.image-view:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--focus-ring);
+}
+.image-view__img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: none;
+  user-select: none;
+  filter: drop-shadow(0 24px 40px rgba(0, 0, 0, 0.25));
+  transition: transform 140ms ease-out;
+}
+.image-view[data-dragging] .image-view__img {
+  transition: none;
+}
+.model-view {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  --poster-color: transparent;
+  background: transparent;
+}
+.model-view::part(default-progress-bar) {
+  display: none;
+}
+
+/* library */
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+}
+.tile__media {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--studio);
+  color: #ffffff;
+}
+.tile__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tile__kind {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-capsule);
+  background: var(--glass-fill-strong);
+  color: var(--label);
+}
+.tile__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--space-1);
+}
+.tile__time {
+  padding: 0 var(--space-1);
+}
+
+/* The job dialog is wider than Lucent's 420 px alert dialog: it holds a viewer. Its content always fits the dialog
+   (it used to have a fixed 720 px width inside the 420 px box), long values wrap, the body scrolls, the actions wrap. */
+.lg-dialog:has(.job-detail) {
+  width: min(760px, 100%);
+  max-height: calc(100dvh - 2 * var(--space-5));
+}
+.lg-dialog:has(.job-detail) .lg-dialog__body {
+  min-height: 0;
+  overflow-y: auto;
+}
+.lg-dialog:has(.job-detail) .lg-dialog__actions {
+  flex-wrap: wrap;
+}
+.lg-dialog:has(.job-detail) .lg-dialog__actions .lg-btn {
+  flex: 1 1 auto;
+}
+.job-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+/* the viewers fill this box (they are absolutely positioned), so it must be their containing block */
+.job-detail__media {
+  position: relative;
+  flex: none;
+  height: min(520px, 55dvh);
+  border-radius: var(--radius-md);
+  background: var(--studio-sweep);
+  overflow: hidden;
+  isolation: isolate;
+}
+.job-detail__facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+}
+.job-detail__fact {
+  display: contents;
+}
+.job-detail__facts dt {
+  color: var(--label-secondary);
+}
+.job-detail__facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* bottom navigation */
+.tab-bar {
+  position: fixed;
+  left: 50%;
+  bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: var(--z-popover);
+  max-width: calc(100vw - 2 * var(--space-3));
+}
+.tab-bar .lg-tabs {
+  gap: 0;
+}
+.tab-bar .lg-tablist {
+  overflow-x: auto;
+  scrollbar-width: none;
+  max-width: 100%;
+}
+.tab-bar .lg-tab {
+  min-width: 76px;
+  white-space: nowrap;
+}
+
+.toasts {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tab-bar-h) + var(--space-4));
+  transform: translateX(-50%);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (max-width: 560px) {
+  .tab-bar .lg-tab {
+    min-width: 58px;
+    padding: 4px var(--space-2);
+  }
+}
+
+/* live log */
+.log-view {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.log-view__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-3) var(--space-2) var(--space-3) var(--space-4);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--label-secondary);
+  outline: none;
+}
+.log-view__scroll:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--focus-ring);
+}
+.log-view__line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-left: var(--space-3);
+  border-left: 2px solid transparent;
+}
+.log-view__line--error {
+  color: var(--danger);
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 7%, transparent);
+}
+.log-view__line--done {
+  color: var(--success);
+  border-left-color: var(--success);
+}
+.log-view__empty {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--label-tertiary);
+}
+.log-view__latest {
+  position: absolute;
+  right: var(--space-5);
+  bottom: var(--space-4);
+  box-shadow: var(--shadow-float);
+}

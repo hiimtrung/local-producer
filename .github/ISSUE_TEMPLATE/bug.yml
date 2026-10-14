@@ -1,0 +1,28 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Prompt, seed, resolution, speed preset; the add-on version (Preferences > Add-ons).
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: The relevant part of models/server/server.log and, for GPU problems, `journalctl -k -b | grep -E 'amdgpu.*(reset|timeout|MES)'`.
+      render: text
+  - type: input
+    id: hardware
+    attributes:
+      label: GPU, kernel, ROCm
+      placeholder: Radeon 780M (gfx1103), kernel 7.0.0-38, cwsr_enable=0

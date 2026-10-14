@@ -1,0 +1,44 @@
+# local-producer server core, the same image for every GPU platform:
+#   - app/ on :13305: the API (job queue, pinned downloads, engine packages), the web UI (web/) and the add-on (blender/)
+#   - matte_server.py on :8083: background removal (rembg on the CPU)
+# No GPU code: the GPU runtime and the CLI builds (sd-cli, trellis-cli) come from an engine package installed at run
+# time into the engines volume (server/catalog/engines.json, app/engines/); weights live in the models volume, results
+# in the library directory (scripts/run-server.sh). Ubuntu 24.04 because the sd.cpp release binaries need
+# glibc >= 2.38. Every Python package is pinned with hashes (requirements.txt, compiled from requirements.in); the
+# base images by digest.
+# Build context = the repository root (.containerignore sends only what is copied below):
+#   podman build -t localhost/local-producer-gpu -f server/Containerfile .   (make server-build / scripts/run-server.sh)
+
+# Stage 1: type-check and build the web UI (TypeScript -> web/dist). npm packages come from web/package-lock.json
+# (integrity hashes), install scripts disabled (web/.npmrc).
+FROM docker.io/library/node:24-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd AS web
+WORKDIR /web
+COPY web/package.json web/package-lock.json web/.npmrc ./
+RUN npm ci --ignore-scripts --no-audit
+COPY web/ ./
+RUN npx tsc --noEmit -p . && node build.mjs
+
+# Stage 2: the server.
+FROM docker.io/library/ubuntu:24.04@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv libnuma1 libdrm2 libelf1 \
+      libgomp1 ca-certificates && rm -rf /var/lib/apt/lists/* \
+    && python3 -m venv /opt/venv \
+    && useradd --create-home --uid 10001 app
+COPY server/requirements.txt /tmp/
+RUN /opt/venv/bin/pip install --no-cache-dir --require-hashes -r /tmp/requirements.txt && rm /tmp/requirements.txt
+# Same layout as the repository, so the server finds web/ and the add-on next to itself (app/settings.py).
+COPY server/app /opt/lp/server/app
+COPY server/catalog /opt/lp/server/catalog
+COPY server/matte_server.py server/entrypoint.sh /opt/lp/server/
+COPY --from=web /web/dist /opt/lp/web/dist
+COPY blender/local_producer /opt/lp/blender/local_producer
+RUN chmod 755 /opt/lp/server/entrypoint.sh
+# Platform settings (e.g. AMD_SERIALIZE_KERNEL=3 for ROCm) come with the engine package (catalog/engines.json).
+ENV PATH=/opt/venv/bin:$PATH U2NET_HOME=/models/rembg PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OMP_NUM_THREADS=8 \
+    MODELS_DIR=/models ENGINES_DIR=/engines LIBRARY_DIR=/library DATA_DIR=/data
+# Non-root by default; scripts/run-server.sh runs it as the host user (--userns=keep-id --user uid:gid) so the
+# files it writes into the volumes and host directories belong to that user.
+USER app
+EXPOSE 13305 8083
+WORKDIR /opt/lp/server
+ENTRYPOINT ["/opt/lp/server/entrypoint.sh"]

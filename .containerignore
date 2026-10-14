@@ -1,0 +1,15 @@
+# Build context of server/Containerfile is the repository root: send only what the image copies.
+*
+!server/Containerfile
+!server/entrypoint.sh
+!server/catalog/
+!server/matte_server.py
+!server/requirements.txt
+!server/app/
+!web/
+!blender/local_producer/
+web/node_modules
+web/dist
+**/__pycache__
+**/*.pyc
+blender/local_producer/samples/*_raw.png

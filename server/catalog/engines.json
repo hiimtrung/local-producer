@@ -1,0 +1,124 @@
+{
+  "_comment": "Engine packages: everything that is specific to one platform (GPU runtime libraries and the CLI builds the pipelines run), installed as a unit under ENGINES_DIR/<id>/<version>/ and loaded by app/engines/. The server image itself holds no GPU code, so a package can be installed, switched or reloaded while the server runs. Every download is pinned by URL, size and SHA256 like catalog/models.json. A package's runners name the CLIs the pipelines ask for (sd-cli: stable-diffusion.cpp, trellis-cli: trellis.cpp) with their library directories. Bumping a version means a new package version (all items reviewed together) and a CHANGELOG.md entry.",
+  "version": 1,
+  "_hosts": "A download (and every redirect it follows) must be https and its host must equal one of these domains or end with '.' + one of them (CDN hosts vary, e.g. us.aws.cdn.hf.co, release-assets.githubusercontent.com).",
+  "allowed_domains": [
+    "github.com",
+    "githubusercontent.com",
+    "repo.amd.com"
+  ],
+  "packages": [
+    {
+      "id": "rocm-gfx1103",
+      "version": "2026.10.15",
+      "title": "AMD ROCm 10.1 for Radeon 780M / 760M (gfx1103)",
+      "description": "HIP builds of stable-diffusion.cpp master-964 (FLUX.2) and trellis.cpp v0.8.1 (TRELLIS.2) with AMD's TheRock ROCm 10.1.0 runtime for gfx1103. Needs the amdgpu kernel parameter cwsr_enable=0 (README.md).",
+      "platform": {
+        "os": "linux",
+        "arch": "x86_64",
+        "accelerator": "rocm",
+        "gpu_targets": [
+          "gfx1103"
+        ]
+      },
+      "env": {
+        "AMD_SERIALIZE_KERNEL": "3"
+      },
+      "lib_dirs": [
+        "rocm/_rocm_sdk_core/lib",
+        "rocm/_rocm_sdk_libraries/lib",
+        "rocm/_rocm_sdk_core/lib/llvm/lib"
+      ],
+      "runners": {
+        "sd-cli": {
+          "bin": "sdcpp/sd-cli",
+          "lib_dirs": [
+            "sdcpp"
+          ],
+          "self_test": [
+            "--version"
+          ]
+        },
+        "trellis-cli": {
+          "bin": "trellis/trellis-cli",
+          "lib_dirs": [
+            "trellis"
+          ],
+          "self_test": [
+            "--help"
+          ]
+        }
+      },
+      "items": [
+        {
+          "id": "stable-diffusion.cpp master-964 HIP build",
+          "kind": "archive",
+          "format": "zip",
+          "strip": "build/bin/",
+          "url": "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-964-1d0a58a/sd-master-1d0a58a-bin-Linux-Ubuntu-24.04-x86_64-rocm-10.1.0.zip",
+          "size": 285018727,
+          "sha256": "a00fcd3233e8acfc8f5aadb0a1ab4e137a37d05dc61e2a37ddf94d7232b121ca",
+          "dest": "sdcpp",
+          "check": "sd-cli",
+          "upstream": {
+            "github": "leejet/stable-diffusion.cpp",
+            "tag": "master-964-1d0a58a"
+          }
+        },
+        {
+          "id": "trellis.cpp v0.8.1 HIP build",
+          "kind": "archive",
+          "format": "tar.gz",
+          "url": "https://github.com/pwilkin/trellis.cpp/releases/download/v0.8.1/trellis-rocm-linux-x64.tar.gz",
+          "size": 194792838,
+          "sha256": "128ec2abd7364186ca9b079855f3f4564d7589cef88ee0f62c380c644b4be884",
+          "dest": "trellis",
+          "check": "trellis-cli",
+          "upstream": {
+            "github": "pwilkin/trellis.cpp",
+            "tag": "v0.8.1"
+          }
+        },
+        {
+          "id": "ROCm 10.1.0 core (HIP runtime, LLVM OpenMP)",
+          "kind": "archive",
+          "format": "zip",
+          "url": "https://stable.repo.amd.com/rocm/whl-next/rocm-sdk-core/rocm_sdk_core-10.1.0-py3-none-linux_x86_64.whl",
+          "size": 419364838,
+          "sha256": "a1a2433334ac61a526c6bae2f58f6bbc9b525f5a9e008e76a1a48d07f64f0703",
+          "dest": "rocm"
+        },
+        {
+          "id": "ROCm 10.1.0 libraries (hipBLAS, rocBLAS)",
+          "kind": "archive",
+          "format": "zip",
+          "url": "https://stable.repo.amd.com/rocm/whl-next/rocm-sdk-libraries/rocm_sdk_libraries-10.1.0-py3-none-linux_x86_64.whl",
+          "size": 260814462,
+          "sha256": "ffb36d5e1d97e96c191052a10c39a1a7a4ddb4da4a88d3166ab4bf7bfdb94cf6",
+          "dest": "rocm"
+        },
+        {
+          "id": "ROCm 10.1.0 device-gfx1103 (gfx1103 kernels)",
+          "kind": "archive",
+          "format": "zip",
+          "url": "https://stable.repo.amd.com/rocm/whl-next/rocm-sdk-device-gfx1103/rocm_sdk_device_gfx1103-10.1.0-py3-none-linux_x86_64.whl",
+          "size": 58810118,
+          "sha256": "5e16f96cba40ec56cf2f6080e2e94f70c93f6875594acf5c5a536b8206e31001",
+          "dest": "rocm"
+        }
+      ]
+    }
+  ],
+  "planned": [
+    {
+      "accelerator": "cuda",
+      "title": "NVIDIA CUDA",
+      "description": "Linux x86_64 with an NVIDIA GPU (container with the NVIDIA CDI devices)."
+    },
+    {
+      "accelerator": "mlx",
+      "title": "Apple silicon (MLX / Metal)",
+      "description": "macOS on M-series chips; the server runs natively, containers cannot reach Metal."
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+# Reviewers requested automatically for each path; a pull request needs their approval when branch protection
+# requires code-owner review. Replace @local-producer/maintainers with the real GitHub team before enabling that rule.
+*                     @local-producer/maintainers
+/server/              @local-producer/maintainers
+/server/catalog/      @local-producer/maintainers
+/.github/             @local-producer/maintainers

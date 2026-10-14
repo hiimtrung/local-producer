@@ -1,0 +1,21 @@
+# Blender extension manifest (Blender 4.2+). The GPU server publishes this package as an extension repository
+# (GET /blender/index.json), so the web UI's "drag into Blender" link installs it; Install from Disk works too.
+# Keep `version` equal to bl_info["version"] in __init__.py (tests/test_api.py checks it).
+schema_version = "1.0.0"
+
+id = "local_producer"
+version = "0.14.0"
+name = "LocalProducer"
+tagline = "Text or image to a textured 3D model on your local GPU server, and its Library"
+maintainer = "local-producer"
+type = "add-on"
+tags = ["3D View", "Mesh"]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+
+[permissions]
+network = "Talk to the local GPU server and matting server"
+files = "Read input images and the server log, write generated images and downloaded models"
+
+[build]
+paths_exclude_pattern = ["__pycache__/", "*.pyc", "*_raw.png"]

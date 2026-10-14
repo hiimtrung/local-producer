@@ -1,0 +1,20 @@
+# Weekly update PRs for pinned dependencies. Server lock files must be recompiled with hashes after a bump
+# (see the header of server/requirements*.in); the GPU path then needs `make smoke` on real hardware before merging.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /server
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly

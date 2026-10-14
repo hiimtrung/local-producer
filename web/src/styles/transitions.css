@@ -1,0 +1,507 @@
+/* Page transitions (lib/transitions): only the page area animates; the top bar and the tab bar stay put.
+   html[data-vt] names the running effect. */
+
+/* Named only while a transition runs: a view-transition-name makes a stacking context, which would trap the page's
+   dialogs under the tab bar. */
+html[data-vt] .app__page {
+  view-transition-name: page;
+}
+html[data-vt] .app__bar {
+  view-transition-name: app-bar;
+}
+html[data-vt] .tab-bar {
+  view-transition-name: tab-bar;
+}
+::view-transition-group(app-bar),
+::view-transition-group(tab-bar) {
+  animation: none;
+  z-index: 10;
+}
+::view-transition-old(app-bar),
+::view-transition-old(tab-bar) {
+  display: none;
+}
+::view-transition-new(app-bar),
+::view-transition-new(tab-bar) {
+  animation: none;
+}
+::view-transition-old(page),
+::view-transition-new(page) {
+  mix-blend-mode: normal;
+  animation-duration: 0.6s;
+}
+::view-transition-group(page) {
+  animation-duration: 0.6s;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* fade and blur */
+html[data-vt="fade"]::view-transition-old(page) {
+  animation: vt-blur-out 0.45s ease-in both;
+}
+html[data-vt="fade"]::view-transition-new(page) {
+  animation: vt-blur-in 0.6s 0.1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes vt-blur-out {
+  to {
+    opacity: 0;
+    filter: blur(16px) saturate(1.4);
+    transform: scale(0.985);
+  }
+}
+@keyframes vt-blur-in {
+  from {
+    opacity: 0;
+    filter: blur(16px) saturate(1.4);
+    transform: scale(1.015);
+  }
+}
+
+/* depth: the old page recedes, the new one rises into place */
+html[data-vt="depth"]::view-transition-old(page) {
+  animation: vt-recede 0.5s cubic-bezier(0.4, 0, 1, 1) both;
+}
+html[data-vt="depth"]::view-transition-new(page) {
+  animation: vt-rise 0.7s 0.08s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes vt-recede {
+  to {
+    opacity: 0;
+    transform: scale(0.88) translateY(-3%);
+    filter: blur(6px) brightness(0.85);
+  }
+}
+@keyframes vt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(72px) scale(1.04);
+    filter: blur(4px);
+  }
+}
+
+/* circle reveal from where the user pressed, the old page sinking under it */
+html[data-vt="reveal"]::view-transition-old(page) {
+  animation: vt-sink 0.75s ease both;
+}
+html[data-vt="reveal"]::view-transition-new(page) {
+  animation: vt-reveal 0.75s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+@keyframes vt-sink {
+  to {
+    transform: scale(0.94);
+    filter: blur(5px) brightness(0.8);
+  }
+}
+@keyframes vt-reveal {
+  from {
+    clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 50%));
+    filter: brightness(1.25) saturate(1.3);
+  }
+  to {
+    clip-path: circle(150vmax at var(--vt-x, 50%) var(--vt-y, 50%));
+    filter: none;
+  }
+}
+
+/* noise dissolve: the new page burns in through a noise mask (frames generated in lib/transitions/dissolve.ts) */
+html[data-vt="dissolve"]::view-transition-old(page) {
+  animation: vt-fade-under 0.85s ease both;
+}
+html[data-vt="dissolve"]::view-transition-new(page) {
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  animation: vt-dissolve 0.85s linear both;
+}
+@keyframes vt-fade-under {
+  to {
+    filter: blur(3px) saturate(0.4) brightness(1.1);
+  }
+}
+
+/* glitch: noise tears the old page into streaks with a colour split, the new one snaps back together */
+html[data-vt="glitch"]::view-transition-old(page) {
+  animation: vt-glitch-out 0.45s steps(1, end) both;
+}
+html[data-vt="glitch"]::view-transition-new(page) {
+  animation: vt-glitch-in 0.6s 0.12s both;
+}
+@keyframes vt-glitch-out {
+  0% {
+    filter: url(#vt-noise-out);
+  }
+  15% {
+    filter: url(#vt-noise-out) drop-shadow(6px 0 rgb(255 0 90 / 0.7)) drop-shadow(-6px 0 rgb(0 210 255 / 0.7));
+    transform: translateX(-10px) skewX(3deg);
+    clip-path: inset(0 0 8% 0);
+  }
+  35% {
+    transform: translateX(14px);
+    clip-path: inset(12% 0 30% 0);
+  }
+  55% {
+    filter: url(#vt-noise-out) drop-shadow(-10px 0 rgb(255 0 90 / 0.8)) drop-shadow(10px 0 rgb(0 210 255 / 0.8));
+    transform: translateX(-6px) skewX(-6deg);
+    clip-path: inset(40% 0 20% 0);
+    opacity: 0.8;
+  }
+  75% {
+    transform: translateX(20px) scaleY(1.04);
+    clip-path: inset(62% 0 4% 0);
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes vt-glitch-in {
+  0% {
+    opacity: 0;
+    filter: url(#vt-noise-in);
+  }
+  12% {
+    opacity: 1;
+    filter: url(#vt-noise-in) drop-shadow(8px 0 rgb(255 0 90 / 0.7)) drop-shadow(-8px 0 rgb(0 210 255 / 0.7));
+    clip-path: inset(30% 0 35% 0);
+    transform: translateX(12px);
+  }
+  22% {
+    opacity: 0.4;
+    clip-path: inset(0 0 60% 0);
+    transform: translateX(-8px);
+  }
+  34% {
+    opacity: 1;
+    clip-path: inset(0);
+    transform: none;
+    filter: url(#vt-noise-in) drop-shadow(3px 0 rgb(255 0 90 / 0.5)) drop-shadow(-3px 0 rgb(0 210 255 / 0.5));
+  }
+  100% {
+    opacity: 1;
+    filter: url(#vt-noise-in);
+  }
+}
+
+/* shatter (lib/transitions/shatter.ts): shards of a copy of the old page over everything but the bars */
+.vt-shatter {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-popover) - 1);
+  pointer-events: none;
+  overflow: hidden;
+  perspective: 1400px;
+}
+.vt-shatter__shard {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  will-change: transform, opacity;
+}
+.vt-shatter__shard * {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  animation: none !important;
+  transition: none !important;
+}
+.vt-shatter__flash {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+
+/* ---- more effects; html[data-vt] names the effect, --vt-dx / --vt-dy / --vt-sign / --vt-wipe (set per transition)
+   pick a random direction, --vt-x / --vt-y the pressed point ---- */
+@property --vt-p {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --vt-r {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --vt-d {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --vt-w {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+::view-transition-image-pair(page) {
+  perspective: 1800px;
+}
+
+/* push: the new page slides in from a random side and shoves the old one */
+html[data-vt="push"]::view-transition-old(page) {
+  animation: vt-push-out 0.6s cubic-bezier(0.7, 0, 0.3, 1) both;
+}
+html[data-vt="push"]::view-transition-new(page) {
+  animation: vt-push-in 0.6s cubic-bezier(0.7, 0, 0.3, 1) both;
+}
+@keyframes vt-push-out {
+  to {
+    transform: translate(calc(var(--vt-dx) * -35vw), calc(var(--vt-dy) * -35vh)) scale(0.92);
+    opacity: 0;
+    filter: blur(4px) brightness(0.85);
+  }
+}
+@keyframes vt-push-in {
+  from {
+    transform: translate(calc(var(--vt-dx) * 100vw), calc(var(--vt-dy) * 100vh));
+  }
+}
+
+/* zoom through: the old page rushes past the camera, the new one arrives from the distance */
+html[data-vt="zoom"]::view-transition-old(page) {
+  animation: vt-zoom-out 0.55s cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+html[data-vt="zoom"]::view-transition-new(page) {
+  animation: vt-zoom-in 0.7s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes vt-zoom-out {
+  to {
+    transform: scale(1.7);
+    opacity: 0;
+    filter: blur(12px);
+  }
+}
+@keyframes vt-zoom-in {
+  from {
+    transform: scale(0.55);
+    opacity: 0;
+    filter: blur(10px);
+  }
+}
+
+/* card flip around the vertical axis, either way */
+html[data-vt="flip"]::view-transition-old(page),
+html[data-vt="flip"]::view-transition-new(page) {
+  backface-visibility: hidden;
+}
+html[data-vt="flip"]::view-transition-old(page) {
+  animation: vt-flip-out 0.38s cubic-bezier(0.5, 0, 1, 1) both;
+}
+html[data-vt="flip"]::view-transition-new(page) {
+  animation: vt-flip-in 0.45s 0.36s cubic-bezier(0, 0, 0.2, 1.2) both;
+}
+@keyframes vt-flip-out {
+  to {
+    transform: rotateY(calc(var(--vt-sign) * -90deg)) scale(0.9);
+    filter: brightness(0.6);
+  }
+}
+@keyframes vt-flip-in {
+  from {
+    transform: rotateY(calc(var(--vt-sign) * 90deg)) scale(0.9);
+    filter: brightness(0.6);
+  }
+}
+
+/* cube: the pages are two faces of a turning cube */
+html[data-vt="cube"]::view-transition-old(page) {
+  transform-origin: calc(50% + var(--vt-sign) * 50%) 50%;
+  animation: vt-cube-out 0.75s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+html[data-vt="cube"]::view-transition-new(page) {
+  transform-origin: calc(50% - var(--vt-sign) * 50%) 50%;
+  animation: vt-cube-in 0.75s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+@keyframes vt-cube-out {
+  to {
+    transform: translateX(calc(var(--vt-sign) * -100%)) rotateY(calc(var(--vt-sign) * -90deg));
+    filter: brightness(0.5);
+  }
+}
+@keyframes vt-cube-in {
+  from {
+    transform: translateX(calc(var(--vt-sign) * 100%)) rotateY(calc(var(--vt-sign) * 90deg));
+    filter: brightness(0.5);
+  }
+}
+
+/* blinds: slats open across the page */
+html[data-vt="blinds"]::view-transition-old(page) {
+  animation: vt-dim 0.7s ease both;
+}
+html[data-vt="blinds"]::view-transition-new(page) {
+  mask-image: repeating-linear-gradient(var(--vt-wipe), #000 0 var(--vt-p), transparent var(--vt-p) 56px);
+  animation: vt-blinds 0.7s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+@keyframes vt-blinds {
+  from {
+    --vt-p: 0px;
+  }
+  to {
+    --vt-p: 57px;
+  }
+}
+@keyframes vt-dim {
+  to {
+    filter: brightness(0.75) blur(2px);
+  }
+}
+
+/* liquid melt: both pages ripple like water (SVG turbulence, lib/transitions/glitch.ts) */
+html[data-vt="liquid"]::view-transition-old(page) {
+  animation: vt-liquid-out 0.8s ease-in both;
+}
+html[data-vt="liquid"]::view-transition-new(page) {
+  animation: vt-liquid-in 0.8s ease-out both;
+}
+@keyframes vt-liquid-out {
+  from {
+    filter: url(#vt-liquid-out);
+  }
+  to {
+    filter: url(#vt-liquid-out) blur(4px);
+    opacity: 0;
+  }
+}
+@keyframes vt-liquid-in {
+  from {
+    filter: url(#vt-liquid-in) blur(4px);
+    opacity: 0;
+  }
+  to {
+    filter: url(#vt-liquid-in);
+    opacity: 1;
+  }
+}
+
+/* diamond iris from the pressed point */
+html[data-vt="diamond"]::view-transition-old(page) {
+  animation: vt-sink 0.75s ease both;
+}
+html[data-vt="diamond"]::view-transition-new(page) {
+  clip-path: polygon(
+    var(--vt-x) calc(var(--vt-y) - var(--vt-d)),
+    calc(var(--vt-x) + var(--vt-d)) var(--vt-y),
+    var(--vt-x) calc(var(--vt-y) + var(--vt-d)),
+    calc(var(--vt-x) - var(--vt-d)) var(--vt-y)
+  );
+  animation: vt-diamond 0.75s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+@keyframes vt-diamond {
+  from {
+    --vt-d: 0px;
+  }
+  to {
+    --vt-d: 220vmax;
+  }
+}
+
+/* opening doors: the new page opens from the middle, sideways or up and down */
+html[data-vt="doors"]::view-transition-old(page) {
+  animation: vt-recede-soft 0.7s ease both;
+}
+html[data-vt="doors"]::view-transition-new(page) {
+  animation: vt-doors 0.7s cubic-bezier(0.76, 0, 0.24, 1) both;
+}
+@keyframes vt-doors {
+  from {
+    clip-path: inset(
+      calc(50% * var(--vt-dy) * var(--vt-dy)) calc(50% * var(--vt-dx) * var(--vt-dx))
+        calc(50% * var(--vt-dy) * var(--vt-dy)) calc(50% * var(--vt-dx) * var(--vt-dx))
+    );
+    filter: brightness(1.3);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+@keyframes vt-recede-soft {
+  to {
+    transform: scale(0.94);
+    filter: brightness(0.7) blur(3px);
+  }
+}
+
+/* soft wipe: a feathered edge sweeps across in a random direction */
+html[data-vt="wipe"]::view-transition-old(page) {
+  animation: vt-dim 0.7s ease both;
+}
+html[data-vt="wipe"]::view-transition-new(page) {
+  mask-image: linear-gradient(var(--vt-wipe), #000 calc(var(--vt-w) - 18%), transparent calc(var(--vt-w) + 18%));
+  animation: vt-wipe 0.7s cubic-bezier(0.45, 0, 0.25, 1) both;
+}
+@keyframes vt-wipe {
+  from {
+    --vt-w: -20%;
+  }
+  to {
+    --vt-w: 120%;
+  }
+}
+
+/* halftone: the new page appears as a grid of growing dots */
+html[data-vt="halftone"]::view-transition-old(page) {
+  animation: vt-dim 0.75s ease both;
+}
+html[data-vt="halftone"]::view-transition-new(page) {
+  mask-image: radial-gradient(circle, #000 var(--vt-r), transparent calc(var(--vt-r) + 1px));
+  mask-size: 26px 26px;
+  mask-position: center;
+  animation: vt-halftone 0.75s cubic-bezier(0.55, 0, 0.45, 1) both;
+}
+@keyframes vt-halftone {
+  from {
+    --vt-r: 0px;
+  }
+  to {
+    --vt-r: 19px;
+  }
+}
+
+/* old TV: the old page collapses to a bright line and a dot, the new one flickers on */
+html[data-vt="tv"]::view-transition-old(page) {
+  transform-origin: 50% 40vh;
+  animation: vt-tv-off 0.5s ease-in both;
+}
+html[data-vt="tv"]::view-transition-new(page) {
+  animation: vt-tv-on 0.5s 0.42s ease-out both;
+}
+@keyframes vt-tv-off {
+  45% {
+    transform: scale(1, 0.004);
+    filter: brightness(4) contrast(1.4);
+  }
+  80% {
+    transform: scale(0, 0.004);
+    filter: brightness(6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0, 0);
+    opacity: 0;
+  }
+}
+@keyframes vt-tv-on {
+  0% {
+    opacity: 0;
+    filter: brightness(2.2) contrast(1.6) saturate(0);
+  }
+  30% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.6;
+  }
+  60% {
+    opacity: 1;
+    filter: brightness(1.3) contrast(1.2) saturate(0.8);
+  }
+}
+
+/* ink spread: a blot floods out from the pressed point (frames from lib/transitions/ink.ts) */
+html[data-vt="ink"]::view-transition-old(page) {
+  animation: vt-dim 0.9s ease both;
+}
+html[data-vt="ink"]::view-transition-new(page) {
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  animation: vt-ink 0.9s linear both;
+}

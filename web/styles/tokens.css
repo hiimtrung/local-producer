@@ -1,0 +1,118 @@
+/* Lucent — generated from web/vendor/lucent/tokens.json by scripts/gen_tokens_css.py */
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 32px;
+  --radius-capsule: 999px;
+  --blur-thin: 8px;
+  --blur-regular: 20px;
+  --blur-thick: 36px;
+  --control-sm: 32px;
+  --control-md: 40px;
+  --control-lg: 48px;
+  --touch-min: 44px;
+  --z-popover: 40;
+  --z-overlay: 60;
+  --z-toast: 80;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f2f7;
+  --bg-elevated: #ffffff;
+  --wall-base: #e9edf2;
+  --wall-a: #ffb36b;
+  --wall-b: #6fd3df;
+  --wall-c: #a6e3a1;
+  --glass-fill: rgba(255,255,255,0.42);
+  --glass-fill-strong: rgba(255,255,255,0.82);
+  --glass-fill-clear: rgba(255,255,255,0.16);
+  --glass-tint: rgba(0,98,204,0.16);
+  --glass-rim-hi: rgba(255,255,255,0.95);
+  --glass-rim-lo: rgba(255,255,255,0.25);
+  --label: #000000;
+  --label-secondary: #5f5f66;
+  --label-tertiary: #636369;
+  --separator: rgba(60,60,67,0.18);
+  --field-border: #8a8a91;
+  --fill-track: rgba(120,120,128,0.24);
+  --knob: #ffffff;
+  --accent: #0062cc;
+  --accent-fill: #0062cc;
+  --on-accent: #ffffff;
+  --accent-soft: rgba(0,98,204,0.12);
+  --success: #1b7a37;
+  --warning: #8f5300;
+  --danger: #c4001a;
+  --danger-fill: #c4001a;
+  --on-danger: #ffffff;
+  --focus-ring: #0062cc;
+  --scrim: rgba(0,0,0,0.28);
+  --shadow-glass: 0 1px 2px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.70);
+  --shadow-float: 0 2px 6px rgba(0,0,0,0.08), 0 24px 60px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.75);
+  --shadow-knob: 0 3px 8px rgba(0,0,0,0.15), 0 1px 1px rgba(0,0,0,0.16);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --bg-elevated: #1c1c20;
+  --wall-base: #0b0d12;
+  --wall-a: #7a3a0c;
+  --wall-b: #0d5560;
+  --wall-c: #1f5a2a;
+  --glass-fill: rgba(44,44,50,0.42);
+  --glass-fill-strong: rgba(30,30,34,0.82);
+  --glass-fill-clear: rgba(255,255,255,0.06);
+  --glass-tint: rgba(74,163,255,0.20);
+  --glass-rim-hi: rgba(255,255,255,0.32);
+  --glass-rim-lo: rgba(255,255,255,0.06);
+  --label: #ffffff;
+  --label-secondary: #aeaeb5;
+  --label-tertiary: #8e8e96;
+  --separator: rgba(235,235,245,0.16);
+  --field-border: #7b7b82;
+  --fill-track: rgba(120,120,128,0.40);
+  --knob: #ffffff;
+  --accent: #4aa3ff;
+  --accent-fill: #0a6fe0;
+  --on-accent: #ffffff;
+  --accent-soft: rgba(74,163,255,0.18);
+  --success: #3ddc6a;
+  --warning: #ffb340;
+  --danger: #ff7a73;
+  --danger-fill: #d4002a;
+  --on-danger: #ffffff;
+  --focus-ring: #66b2ff;
+  --scrim: rgba(0,0,0,0.56);
+  --shadow-glass: 0 1px 2px rgba(0,0,0,0.40), 0 10px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.14);
+  --shadow-float: 0 2px 6px rgba(0,0,0,0.5), 0 28px 70px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.16);
+  --shadow-knob: 0 3px 8px rgba(0,0,0,0.5), 0 1px 1px rgba(0,0,0,0.4);
+}
+
+.large-title { font-family: var(--font-display); font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: 0.4px; }
+.title-1 { font-family: var(--font-display); font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: 0.38px; }
+.title-2 { font-family: var(--font-display); font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: -0.26px; }
+.title-3 { font-family: var(--font-display); font-size: 20px; line-height: 25px; font-weight: 600; letter-spacing: -0.45px; }
+.headline { font-family: var(--font-sans); font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -0.43px; }
+.body { font-family: var(--font-sans); font-size: 17px; line-height: 22px; font-weight: 400; letter-spacing: -0.43px; }
+.callout { font-family: var(--font-sans); font-size: 16px; line-height: 21px; font-weight: 400; letter-spacing: -0.31px; }
+.subheadline { font-family: var(--font-sans); font-size: 15px; line-height: 20px; font-weight: 400; letter-spacing: -0.23px; }
+.footnote { font-family: var(--font-sans); font-size: 13px; line-height: 18px; font-weight: 400; letter-spacing: -0.08px; }
+.caption-1 { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 400; letter-spacing: 0px; }
+.caption-2 { font-family: var(--font-sans); font-size: 11px; line-height: 13px; font-weight: 500; letter-spacing: 0.06px; }
+.code { font-family: var(--font-mono); font-size: 13px; line-height: 18px; font-weight: 400; letter-spacing: 0px; }

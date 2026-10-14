@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "blender": {
+      "type": "stdio",
+      "command": "tools/blmcp/.venv/bin/python",
+      "args": ["-m", "blmcp"]
+    }
+  }
+}

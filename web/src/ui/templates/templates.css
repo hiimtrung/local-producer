@@ -1,0 +1,218 @@
+/* Templates: the app frame, the stage layout of creation pages, document pages. */
+
+/* The app is centred and capped on very wide screens (21:9); the backdrop still fills the window. */
+.app {
+  position: relative;
+  width: 100%;
+  max-width: var(--app-max);
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--space-4) calc(var(--tab-bar-h) + var(--space-4));
+}
+.app__bar {
+  position: sticky;
+  top: var(--space-3);
+  z-index: var(--z-popover);
+  height: var(--app-bar-h);
+  margin: var(--space-3) 0 var(--space-4);
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-3) 0 var(--space-5);
+}
+.app__brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--label);
+  text-decoration: none;
+}
+.app__activity {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+.app__page {
+  flex: 1;
+  min-width: 0;
+}
+
+/* stage: the preview and the parameter panel side by side, never on top of each other */
+.stage-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--panel-w);
+  gap: var(--space-4);
+  height: calc(100dvh - var(--app-bar-h) - var(--tab-bar-h) - 3 * var(--space-4) - var(--space-3));
+  min-height: 480px;
+}
+.stage {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  /* a studio sweep: the floor is lighter where the light falls, the wall darker towards the top */
+  background: var(--studio-sweep);
+}
+/* one cell that cannot grow past the stage: a percentage max-height inside an auto-sized grid row resolves
+   against the content, which let a square image overflow and get clipped */
+.stage__content {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  padding: var(--space-10);
+}
+.stage__overlay {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-6);
+  transform: translateX(-50%);
+  width: min(560px, calc(100% - 2 * var(--space-6)));
+  display: flex;
+  justify-content: center;
+}
+.stage__panel {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
+}
+.panel__actions {
+  position: sticky;
+  bottom: calc(-1 * var(--space-6));
+  margin: 0 calc(-1 * var(--space-6)) calc(-1 * var(--space-6));
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  background: var(--glass-fill-strong);
+  -webkit-backdrop-filter: blur(var(--blur-thick)) saturate(180%);
+  backdrop-filter: blur(var(--blur-thick)) saturate(180%);
+  border-top: 1px solid var(--separator);
+}
+
+/* document pages */
+.doc-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-4) 0 var(--space-6);
+}
+
+@media (max-width: 1100px) {
+  :root {
+    --panel-w: 340px;
+  }
+}
+@media (max-width: 860px) {
+  .app {
+    padding-inline: var(--space-2);
+  }
+  .app__brand .footnote {
+    display: none;
+  }
+  .app__bar {
+    padding-left: var(--space-4);
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--space-2);
+  }
+  /* narrow: the job keeps its ring, name and percentage; the vitals keep the dot */
+  .app__bar .job-chip__stage,
+  .app__bar .job-chip__numbers > span,
+  .app__bar .job-chip__queue,
+  .app__bar .vitals__gpu,
+  .app__bar .vitals__label,
+  .app__bar .vitals .lg-badge {
+    display: none;
+  }
+  .app__bar .job-chip {
+    padding-right: var(--space-3);
+  }
+  .stage-layout {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .stage {
+    height: 58dvh;
+  }
+  .stage__content {
+    padding: var(--space-4);
+  }
+  .stage__panel {
+    overflow: visible;
+  }
+  .panel__actions {
+    bottom: calc(var(--tab-bar-h) - var(--space-6) + var(--space-2));
+  }
+}
+
+/* the live backdrop: slow liquid colour fields drifting behind the glass (transforms only, so it stays cheap) */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.backdrop__blob {
+  position: absolute;
+  width: 70vmax;
+  height: 70vmax;
+  border-radius: 50%;
+  opacity: 0.75;
+  will-change: transform;
+  animation: blob-drift 48s ease-in-out infinite alternate;
+}
+.backdrop__blob:nth-child(1) {
+  left: -20vmax;
+  top: -25vmax;
+  background: radial-gradient(closest-side, var(--wall-a), transparent);
+}
+.backdrop__blob:nth-child(2) {
+  right: -25vmax;
+  top: -20vmax;
+  background: radial-gradient(closest-side, var(--wall-b), transparent);
+  animation-duration: 61s;
+  animation-delay: -20s;
+  animation-direction: alternate-reverse;
+}
+.backdrop__blob:nth-child(3) {
+  left: 15vmax;
+  bottom: -40vmax;
+  background: radial-gradient(closest-side, var(--wall-c), transparent);
+  animation-duration: 55s;
+  animation-delay: -35s;
+}
+.backdrop__blob:nth-child(4) {
+  right: 5vmax;
+  bottom: -30vmax;
+  width: 50vmax;
+  height: 50vmax;
+  background: radial-gradient(closest-side, var(--accent-soft), transparent);
+  opacity: 1;
+  animation-duration: 39s;
+  animation-delay: -10s;
+  animation-direction: alternate-reverse;
+}
+@keyframes blob-drift {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate(18vw, 12vh) scale(1.15) rotate(40deg);
+  }
+  66% {
+    transform: translate(-10vw, 22vh) scale(0.9) rotate(-25deg);
+  }
+  100% {
+    transform: translate(12vw, -8vh) scale(1.08) rotate(15deg);
+  }
+}

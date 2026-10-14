@@ -1,0 +1,29 @@
+{
+  "_comment": "Design-system files the web UI bundles from this repository (not on npm). Each file is pinned by SHA256; tests/test_web.py checks them. npm dependencies are pinned with integrity hashes in web/package-lock.json instead. To update one: download the new version, update url and sha256 together, and note it in CHANGELOG.md.",
+  "files": [
+    {
+      "path": "lucent/bundle.js",
+      "what": "Lucent design system (window.Lucent)",
+      "source": "https://claude.ai/artifact/SDYfdYxdUAzWGwcxka3vKw project/components/bundle.js",
+      "license": "the project's own design system",
+      "size": 47172,
+      "sha256": "e6b9dc0cd63f32e6ced73248dace41dd51b58b2762ef8a41f1d5f318735f67ed"
+    },
+    {
+      "path": "lucent/bundle.css",
+      "what": "Lucent design system",
+      "source": "https://claude.ai/artifact/SDYfdYxdUAzWGwcxka3vKw project/components/bundle.css",
+      "license": "the project's own design system",
+      "size": 25950,
+      "sha256": "9b950965760a39eada740de89815f3c953e8cc91750a890e7ae0055372de1853"
+    },
+    {
+      "path": "lucent/tokens.json",
+      "what": "Lucent design system tokens",
+      "source": "https://claude.ai/artifact/SDYfdYxdUAzWGwcxka3vKw project/tokens.json",
+      "license": "the project's own design system",
+      "size": 13387,
+      "sha256": "b6d81c7c695e744415cba0eaa24b37c2c01a056cf69b1813dd152b3fcc2ce326"
+    }
+  ]
+}
