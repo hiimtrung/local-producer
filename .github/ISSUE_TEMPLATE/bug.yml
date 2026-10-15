@@ -19,7 +19,7 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: The relevant part of models/server/server.log and, for GPU problems, `journalctl -k -b | grep -E 'amdgpu.*(reset|timeout|MES)'`.
+      description: The relevant part of ~/.local-producer/server/server.log and, for GPU problems, `journalctl -k -b | grep -E 'amdgpu.*(reset|timeout|MES)'`.
       render: text
   - type: input
     id: hardware

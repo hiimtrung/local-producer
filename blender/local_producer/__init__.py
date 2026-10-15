@@ -56,12 +56,14 @@ from .prompts import APOSE_EDIT, EDIT_BACKGROUND, FRAMING_TAIL, full_prompt, rea
 
 bl_info = {
     "name": "LocalProducer",
-    "author": "local-producer",
-    "version": (0, 14, 0),
+    "author": "hiimtrung",
+    "version": (0, 14, 1),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > LocalProducer",
     "description": "Generate a PBR-textured mesh from an image or a text prompt (FLUX.2 + TRELLIS.2 on the local "
     "GPU server), and import the 3D models of the server's Library",
+    "doc_url": "https://github.com/hiimtrung/local-producer#readme",
+    "tracker_url": "https://github.com/hiimtrung/local-producer/issues",
     "category": "3D View",
 }
 

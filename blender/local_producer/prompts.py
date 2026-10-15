@@ -1,4 +1,4 @@
-"""Prompt framing and server-log parsing for the TRELLIS.2 add-on. No bpy: unit-tested outside Blender."""
+"""Prompt framing and server-log parsing for the LocalProducer add-on. No bpy: unit-tested outside Blender."""
 
 import os
 
