@@ -50,15 +50,17 @@ make server-up        # builds the image on first start, then open http://127.0.
 ```
 
 In the web UI: **Server > Engines** shows what the machine is and installs its engine package (the GPU runtime and
-the image / 3D generators, ~1.1 GB download; loaded without a restart), **Server > Models** downloads the weights
-(~24 GB on disk; it installs the engine first when none is loaded) and adds other models (FLUX.2-klein variants such
-as Q4_0, TRELLIS.2 sets) from Hugging Face, another public https link or an upload; **Test** runs a tiny real job with
-the loaded engine to prove a model works here, and the Image / 3D pages then offer it. Built-in files come from their
-pinned source and are checked against their SHA256. **Image** generates or edits images (zoom and pan the result), **3D model** turns an image into a
+the image / 3D generators, ~1.1 GB download; loaded without a restart), **Server > Models** downloads the shared
+components every model of a kind runs with (the FLUX.2-klein text encoder and VAE, the TRELLIS.2 image encoder and
+decoders; 7.3 GB on disk) plus a recommended main model for each kind that has none (FLUX.2-klein-4B Q8_0, TRELLIS.2
+q8 flow models; ~18 GB on disk in all; it installs the engine first when none is loaded). Other main models (FLUX.2-klein
+quantisations, TRELLIS.2 q4 / f16 flow models) come from the suggestions, Hugging Face, another http(s) link or an
+upload, and one per kind is the default; **Test** runs a tiny real job with the loaded engine to prove a model works
+here, and the Image / 3D pages then offer it. Pinned files are checked against their SHA256. **Image** generates or edits images (zoom and pan the result), **3D model** turns an image into a
 textured GLB with an interactive preview, **Library** keeps every result, **Tools** runs the smaller steps, **Server**
 shows the status with the Blender add-on (drag its button into Blender to install), the live job log, the models and
 the settings. All parameters are on the pages; the server validates them. Without a browser: `make setup` (engine,
-then models). The server does not start by itself after a reboot: `make server-up`.
+then components and recommended models). The server does not start by itself after a reboot: `make server-up`.
 
 Where the data lives (`scripts/lp-env.sh`, each overridable): weights in the Podman volume `local-producer-models`,
 engine packages in `local-producer-engines` (both survive image rebuilds; `podman volume rm` or

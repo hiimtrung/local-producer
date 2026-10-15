@@ -86,6 +86,7 @@ class Manifest(TypedDict):
     version: int
     allowed_domains: list[str]
     items: list[ManifestItem]
+    components: NotRequired[dict[str, dict[str, str]]]  # family -> role -> dest of one of the items
 
 
 ItemState = Literal["ok", "missing", "wrong-size"]
@@ -136,6 +137,11 @@ def validate_manifest(m: Any) -> None:
     if m.get("version") != 1:
         raise SetupError("unsupported manifest version")
     validate_items(m["items"], m["allowed_domains"])
+    dests = {it["dest"] for it in m["items"]}
+    for family, roles in m.get("components", {}).items():
+        for role, rel in roles.items():
+            if safe_relpath(rel) not in dests:
+                raise SetupError(f"component {family}/{role} is not one of the items: {rel}")
 
 
 def validate_items(items: Any, domains: list[str]) -> None:

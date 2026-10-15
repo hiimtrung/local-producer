@@ -6,6 +6,30 @@ Machine: ThinkPad P14s Gen 4, Ryzen 7 PRO 7840U, Radeon 780M (gfx1103), Ubuntu 2
 
 ---
 
+## 2026-10-15 — Shared components, main models as options
+
+- **Goal (maintainer request):** "built-in" should mean only the shared parts a main model needs, not a main model:
+  the built-in FLUX.2-klein q8_0 and TRELLIS.2 f16 made every added variant redundant.
+- **Change:** `catalog/models.json` items are now only the shared components per family (`components`): FLUX.2-klein
+  Qwen3-4B text encoder q8_0 + VAE; TRELLIS.2 DINOv3 image encoder + `ss_dec`, `shape_dec`, `tex_dec` (f16). Main
+  models (a FLUX.2-klein diffusion model, the TRELLIS.2 flow models) are options added like any user model; a
+  TRELLIS.2 Hugging Face folder contributes only its flow models. trellis-cli takes one `--models` directory, so each
+  run links the flows + components into a temporary directory. One default model per family
+  (`PUT /v1/models/{id}/default`, falls back to the first usable one); the setup download adds the recommended
+  suggestion (FLUX.2-klein-4B Q8_0 leejet, TRELLIS.2 q8) for a family without a model. `birefnet.gguf` is no longer
+  downloaded: the server mattes every input before TRELLIS.2.
+- **Sizes:** components 7.26 GB on disk (was 31.4 GB for the old built-in set); fresh setup with the recommended
+  models ~18.4 GB on disk. TRELLIS.2 options: q4 flows 3.65 GB, q8 6.88 GB, f16 12.93 GB (were 6.5 / 10.0 / 15.3 GB
+  as full sets).
+- **This machine:** the former built-in main files were moved, not re-downloaded, into user models
+  `flux-2-klein-4b-q8-0-converted` and `trellis-2-f16-ilintar` (both set as default); `birefnet.gguf` and the q4 set's
+  own encoder/decoder copies were deleted (models volume, `du -sh`: 32.8 GiB -> 29 GiB; it now holds 4 main models).
+- **Checked (Test = tiny real run, rocm-gfx1103 2026.10.15, n=1 each):** FLUX q8_0 converted 7.3 s, FLUX Q4_0 6.3 s,
+  TRELLIS.2 f16 flows 62.5 s, q4 flows with the f16 encoder/decoders 55.4 s; GPU resets 0 before and after. Whether
+  q4 flows with f16 decoders look different from the all-q4 set is not measured. 121 unit tests, mypy, tsc.
+
+---
+
 ## 2026-10-15 — Any link for user models; remaining security rows approved
 
 - **Maintainer decisions:** users may give any http or https link for a model, also to this machine or the local

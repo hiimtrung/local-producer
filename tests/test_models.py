@@ -4,11 +4,13 @@ Hugging Face pinning, uploads, tests with the engine, and jobs that pick a model
 import functools
 import http.server
 import json
+import pathlib
 import struct
 import threading
+import time
 
 import pytest
-from conftest import wait_job
+from conftest import png_bytes, wait_job
 from test_model_setup import FakeOpener, sha
 
 from app import model_store
@@ -97,8 +99,8 @@ def test_a_hugging_face_file_is_pinned_and_verified(server_env, monkeypatch):
     assert info.files == {"diffusion": f"user/{info.id}/flux-2-klein-4b-Q4_0.gguf"}
     c, _ = server_env
     listed = {m["id"]: m for m in c.get("/v1/models").json()["models"]}
-    assert listed[info.id]["present"] and not listed[info.id]["builtin"]
-    assert listed["flux2-klein-4b-q8_0"]["builtin"]
+    assert listed[info.id]["present"] and not listed[info.id]["default"]
+    assert listed["flux-test"]["default"]  # the first one added stays the default
 
 
 def test_a_tampered_hugging_face_download_is_rejected(server_env, monkeypatch):
@@ -107,16 +109,22 @@ def test_a_tampered_hugging_face_download_is_rejected(server_env, monkeypatch):
     req = AddModel(family="flux2-klein", title="X", url=f"https://huggingface.co/{REPO}/resolve/main/x.gguf")
     with pytest.raises(SetupError, match="verification failed"):
         model_store.store.add_from_url(req, opener=opener)
-    assert [m.id for m in model_store.store.all() if not m.builtin] == []
+    assert [m.id for m in model_store.store.all()] == ["flux-test", "trellis-test"]
 
 
-def test_a_trellis_folder_needs_the_whole_set(server_env, monkeypatch):
-    files = {f"q8/{n}": GGUF for n in model_store.TRELLIS_FILES}
+def test_a_trellis_folder_contributes_only_its_flow_models(server_env, monkeypatch):
+    names = ("birefnet", "dinov3", "ss_dec", "shape_dec", "tex_dec", *model_store.TRELLIS_FLOWS)
+    files = {f"q8/{n}.gguf": GGUF for n in names}
     url = f"https://huggingface.co/{REPO}/tree/main/q8"
     info = model_store.store.add_from_url(AddModel(family="trellis2", title="T q8", url=url), opener=hf_fake(files))
-    assert info.files == {"dir": f"user/{info.id}"}
-    del files["q8/dinov3.gguf"]
-    with pytest.raises(SetupError, match="lacks dinov3.gguf"):
+    assert info.files == {n: f"user/{info.id}/{n}.gguf" for n in model_store.TRELLIS_FLOWS}
+    with model_store.store.trellis_dir(info) as d:  # flows + the shared encoder and decoders, as trellis-cli wants
+        links = {f.name: f.resolve() for f in pathlib.Path(d).iterdir()}
+    assert set(links) == {f"{n}.gguf" for n in ("dinov3", "ss_dec", "shape_dec", "tex_dec", *model_store.TRELLIS_FLOWS)}
+    assert links["dinov3.gguf"].parts[-2:] == ("trellis2", "dinov3.gguf")
+    assert links["ss_flow.gguf"].parts[-2:] == (info.id, "ss_flow.gguf")
+    del files["q8/ss_flow.gguf"]
+    with pytest.raises(SetupError, match="lacks ss_flow.gguf"):
         model_store.store.add_from_url(AddModel(family="trellis2", title="T", url=url), opener=hf_fake(files))
 
 
@@ -133,7 +141,7 @@ def test_upload_then_test_then_generate_with_the_model(server_env):
     assert job["state"] == "done" and job["outputs"] == ["image.png"]
     argv = calls()[-1]
     assert argv[argv.index("--diffusion-model") + 1].endswith(f"user/{mid}/mine.gguf")
-    assert argv[argv.index("--llm") + 1].endswith("flux2/qwen_3_4b-q8_0.gguf")  # the built-in text encoder
+    assert argv[argv.index("--llm") + 1].endswith("flux2/qwen_3_4b-q8_0.gguf")  # the shared text encoder
     model = next(m for m in c.get("/v1/models").json()["models"] if m["id"] == mid)
     assert model["check"]["state"] == "ok" and model["check"]["engine"] == "rocm-gfx1103 2026.10.15"
 
@@ -144,7 +152,6 @@ def test_upload_then_test_then_generate_with_the_model(server_env):
         c.post("/v1/jobs", json={"kind": "image.generate", "params": {"prompt": "a", "model": "nope"}}).status_code
         == 400
     )
-    assert c.delete("/v1/models/flux2-klein-4b-q8_0").status_code == 409  # built in
     assert c.delete(f"/v1/models/{mid}").status_code == 204
     assert all(m["id"] != mid for m in c.get("/v1/models").json()["models"])
 
@@ -163,10 +170,54 @@ def test_a_failed_test_is_recorded_and_blocks_jobs(server_env, monkeypatch):
 
 def test_a_trellis_model_test_makes_a_draft_mesh(server_env):
     c, calls = server_env
-    job = wait_job(c, c.post("/v1/models/trellis2-f16/check").json()["id"])
+    job = wait_job(c, c.post("/v1/models/trellis-test/check").json()["id"])
     assert job["state"] == "done" and job["outputs"] == ["model.glb", "input.png"]
     argv = calls()[-1]
     assert argv[argv.index("--steps") + 1] == "1" and "--no-texture" in argv
+
+
+def test_the_default_model_is_chosen_and_falls_back(server_env):
+    c, calls = server_env
+    mid = c.put("/v1/models/upload?family=flux2-klein&title=Mine&filename=mine.gguf", content=GGUF).json()["id"]
+    assert c.put(f"/v1/models/{mid}/default").json()["default"]
+    wait_job(c, c.post("/v1/jobs", json={"kind": "image.generate", "params": {"prompt": "a"}}).json()["id"])
+    argv = calls()[-1]
+    assert argv[argv.index("--diffusion-model") + 1].endswith(f"user/{mid}/mine.gguf")
+    assert c.delete(f"/v1/models/{mid}").status_code == 204
+    defaults = [m["id"] for m in c.get("/v1/models").json()["models"] if m["default"]]
+    assert defaults == ["flux-test", "trellis-test"]
+    assert c.put("/v1/models/nope/default").status_code == 404
+
+
+def test_jobs_need_a_model_and_the_shared_components(server_env, tmp_path):
+    c, _ = server_env
+    assert c.delete("/v1/models/flux-test").status_code == 204
+    r = c.post("/v1/jobs", json={"kind": "image.generate", "params": {"prompt": "a"}})
+    assert r.status_code == 503 and "add one on the Models page" in r.json()["detail"]
+    (tmp_path / "models" / "trellis2" / "dinov3.gguf").unlink()
+    comps = {f["family"]: f for f in c.get("/v1/models").json()["components"]}
+    assert comps["flux2-klein"]["ready"] and not comps["trellis2"]["ready"]
+    uid = c.post("/v1/uploads", files={"file": ("in.png", png_bytes())}).json()["id"]
+    r = c.post("/v1/jobs", json={"kind": "mesh.generate", "params": {"image": {"upload": uid}}})
+    assert r.status_code == 503 and "trellis2/dinov3.gguf" in r.json()["detail"]
+
+
+def test_the_setup_adds_the_recommended_model_of_a_family_without_one(server_env, monkeypatch):
+    c, _ = server_env
+    assert c.get("/v1/setup").json()["to_add"] == []
+    assert c.delete("/v1/models/flux-test").status_code == 204
+    s = c.get("/v1/setup").json()
+    rec = [x["title"] for x in s["to_add"]]
+    assert rec == ["FLUX.2-klein-4B Q8_0 (leejet)"] and not s["ready"] and s["missing_bytes"] == 4300629440
+    added = []
+    monkeypatch.setattr(model_store.store, "add_from_url", lambda req, opener=None, progress=None: added.append(req))
+    monkeypatch.setattr("app.model_setup.download", lambda progress=None: None)
+    assert c.post("/v1/setup/download").status_code == 202
+    for _ in range(100):
+        if not c.get("/v1/setup").json()["download"]["running"]:
+            break
+        time.sleep(0.02)
+    assert [(r.family, r.title) for r in added] == [("flux2-klein", "FLUX.2-klein-4B Q8_0 (leejet)")]
 
 
 def test_suggestions_are_marked_once_added_and_errors_can_be_dismissed(server_env, monkeypatch):

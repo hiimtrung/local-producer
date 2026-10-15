@@ -1,10 +1,12 @@
 """Models the pipelines can use (app/model_store.py): list, add from a link or an upload, test, remove.
 
-GET    /v1/models                    ModelsOverview: families, built-in and added models with their last test
+GET    /v1/models                    ModelsOverview: families, their shared components, the added models with
+                                     their last test, suggestions
 POST   /v1/models                    AddModel {family, title, url}: download in the background (202)
 PUT    /v1/models/upload?family=&title=&filename=   the raw file as the body (streamed to disk) -> ModelInfo
 POST   /v1/models/{id}/check         queue a "model.check" job with the loaded engine -> Job
-DELETE /v1/models/{id}               remove a model you added
+PUT    /v1/models/{id}/default       jobs of its family that name no model run with it -> ModelInfo
+DELETE /v1/models/{id}               remove a model
 DELETE /v1/models/adding             clear the last add's error
 """
 
@@ -19,6 +21,7 @@ from ..model_setup import SetupError
 from ..model_store import FAMILIES, MODEL_ID, AddModel, ModelInfo, ModelsOverview, store
 from ..pipelines.check import CheckParams
 from ..schemas import Job, Started
+from .setup import setup_busy
 
 router = APIRouter()
 
@@ -32,8 +35,8 @@ def overview() -> ModelsOverview:
 def add(req: AddModel) -> Started:
     if req.family not in FAMILIES:
         raise HTTPException(422, "unknown model family")
-    if store.progress.snapshot().running:
-        raise HTTPException(409, "a model is already being added")
+    if store.progress.snapshot().running or setup_busy():
+        raise HTTPException(409, "a model or the setup is already downloading")
 
     def work() -> None:
         try:
@@ -84,6 +87,14 @@ def check(model_id: str = Path(pattern=MODEL_ID)) -> Job:
     if missing:
         raise HTTPException(503, f"{missing} (Server > Engines)")
     return manager.submit("model.check", CheckParams(model=model_id))
+
+
+@router.put("/v1/models/{model_id}/default")
+def make_default(model_id: str = Path(pattern=MODEL_ID)) -> ModelInfo:
+    try:
+        return store.set_default(model_id)
+    except SetupError as e:
+        raise HTTPException(404, str(e)) from None
 
 
 @router.delete("/v1/models/{model_id}", status_code=204)

@@ -57,14 +57,30 @@ def install_fake_engine(engines_dir, version="2026.10.15"):
     return root
 
 
-def install_fake_builtin_models(models_dir):
-    """Placeholder files at every path of catalog/models.json, so the built-in models count as present."""
+FLOWS = ("ss_flow", "shape_flow_512", "tex_flow_512", "shape_flow_1024", "tex_flow_1024")
+FAKE_MODELS = {
+    "flux-test": ("flux2-klein", {"diffusion": "d.gguf"}),
+    "trellis-test": ("trellis2", {n: f"{n}.gguf" for n in FLOWS}),
+}
+
+
+def install_fake_models(models_dir):
+    """Placeholder files at every path of catalog/models.json (the shared components) and one added model per
+    family (FAKE_MODELS), so jobs have a model to run with."""
     from app import model_setup
 
     for it in model_setup.load_manifest()["items"]:
         p = models_dir / it["dest"]
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_bytes(b"GGUF")
+    for n, (mid, (family, files)) in enumerate(FAKE_MODELS.items()):
+        d = models_dir / "user" / mid
+        d.mkdir(parents=True)
+        for name in files.values():
+            (d / name).write_bytes(b"GGUF")
+        info = {"id": mid, "family": family, "title": mid, "source": "test", "size": 4, "added_at": n,
+                "files": {role: f"user/{mid}/{name}" for role, name in files.items()}}  # fmt: skip
+        (d / "model.json").write_text(json.dumps(info))
 
 
 @pytest.fixture
@@ -92,7 +108,7 @@ def server_env(tmp_path, monkeypatch, fake_host):
 
     models, data, library, engines_dir = (tmp_path / d for d in ("models", "data", "library", "engines"))
     models.mkdir()
-    install_fake_builtin_models(models)
+    install_fake_models(models)
     install_fake_engine(engines_dir)
     argv_log = tmp_path / "argv.jsonl"
     monkeypatch.setenv("FAKE_ARGV_LOG", str(argv_log))

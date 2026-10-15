@@ -5,8 +5,9 @@ The server is local-producer's GPU server (scripts/run-server.sh: FLUX.2 and TRE
 job) on http://127.0.0.1:13305 (POST /v1/3d/generations; the request format follows AMD Lemonade's API, which the
 project used before 2026-10-14).
 
-Server setup: the "Check Server" button shows whether the pinned models are installed; "Download Models" makes the
-server fetch them (SHA256-verified, POST /v1/setup/download) with progress in the panel.
+Server setup: the "Check Server" button shows whether the shared components and a model of each kind are installed;
+"Download Models" makes the server fetch what is missing (SHA256-verified, POST /v1/setup/download: the components
+plus the recommended model of a kind that has none) with progress in the panel. Other models: the web UI's Models page.
 Install: drag the "Drag into Blender to install" button of the web UI (Server > Blender add-on) into Blender 4.2+
 (the server is an extension repository, /blender/index.json), or run blender/build_addon.sh and use
 Edit > Preferences > Add-ons > (menu) Install from Disk... > the zip.
@@ -57,7 +58,7 @@ from .prompts import APOSE_EDIT, EDIT_BACKGROUND, FRAMING_TAIL, full_prompt, rea
 bl_info = {
     "name": "LocalProducer",
     "author": "hiimtrung",
-    "version": (0, 14, 1),
+    "version": (0, 14, 2),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > LocalProducer",
     "description": "Generate a PBR-textured mesh from an image or a text prompt (FLUX.2 + TRELLIS.2 on the local "
@@ -948,8 +949,8 @@ def _describe_setup(s):
         return f"Download failed: {d['error'][:120]}"
     if s.get("ready"):
         return "Models ready"
-    missing = sum(1 for i in s.get("items", []) if i["state"] != "ok")
-    return f"{missing} model file(s) missing, {s.get('missing_bytes', 0) / 2**30:.1f} GB to download"
+    missing = sum(1 for i in s.get("items", []) if i["state"] != "ok") + len(s.get("to_add", []))
+    return f"{missing} component(s) or model(s) missing, {s.get('missing_bytes', 0) / 2**30:.1f} GB to download"
 
 
 def refresh_setup():
@@ -991,7 +992,7 @@ def start_model_download():
 class LP_OT_check_server(bpy.types.Operator):
     bl_idname = "local_producer.check_server"
     bl_label = "Check Server"
-    bl_description = "Ask the server whether all models are installed"
+    bl_description = "Ask the server whether the shared components and a model of each kind are installed"
 
     def execute(self, context):
         error = refresh_setup()
@@ -1005,8 +1006,9 @@ class LP_OT_download_models(bpy.types.Operator):
     bl_idname = "local_producer.download_models"
     bl_label = "Download Models"
     bl_description = (
-        "The server downloads the pinned models (~24 GB on disk, ~37 GB of downloads incl. the FLUX.2 "
-        "originals converted to q8_0) and verifies every file's SHA256"
+        "The server downloads the shared components and, for a kind with no model yet, the recommended one "
+        "(~18 GB on disk, ~22 GB of downloads incl. the text encoder original converted to q8_0) and verifies "
+        "every file's SHA256"
     )
 
     @classmethod

@@ -1,5 +1,5 @@
-// Which model a job runs with: the built-in one (null) or one added on the Models page. Hidden while there is no
-// choice; a model that failed its test is marked.
+// Which model a job runs with: null = the family's default (Server > Models), or another one. Hidden while there is
+// no choice; a model that failed its test is marked.
 import type { ModelInfo } from "../../api/client";
 import { ChoiceField } from "./ChoiceField";
 
@@ -14,8 +14,8 @@ export function ModelField({
 }) {
   if (models.length < 2) return null;
   const options = models.map((m) => ({
-    value: m.builtin ? "" : m.id,
-    label: `${m.title}${m.check?.state === "failed" ? " (failed its test)" : ""}`,
+    value: m.default ? "" : m.id,
+    label: `${m.title}${m.default ? " (default)" : ""}${m.check?.state === "failed" ? " (failed its test)" : ""}`,
   }));
   return (
     <ChoiceField
