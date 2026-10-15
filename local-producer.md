@@ -195,28 +195,29 @@ The orchestrator only uses the **role names** from this file. Changing the model
 
 ```json
 {
-  "slug": "banh-rang-truyen-dong",
-  "language": "vi",
-  "title": "Tỉ số truyền của bánh răng",
-  "source_note": "Cơ khí/Bánh răng.md",
+  "slug": "gear-ratio",
+  "language": "en",
+  "title": "Gear ratio",
+  "source_note": "Mechanics/Gears.md",
   "approved": false,
   "scenes": [
     {
       "id": "s01",
       "type": "aroll",
-      "narration": "Vì sao chiếc xe đạp leo dốc dễ hơn khi về số nhỏ?"
+      "narration": "Why is climbing a hill on a bicycle easier in a low gear?"
     },
     {
       "id": "s02",
       "type": "broll",
-      "narration": "Khi bánh răng 24 răng quay một vòng, bánh răng 12 răng ăn khớp với nó phải quay hai vòng.",
-      "visual": "Hai bánh răng có răng rõ ràng, 24 và 12 răng, ăn khớp ngang nhau. Bánh lớn quay 1 vòng theo chiều kim đồng hồ, bánh nhỏ quay 2 vòng ngược chiều. Hiện chữ 'Tỉ số truyền 2 : 1'."
+      "narration": "When the 24-tooth gear makes one turn, the 12-tooth gear meshed with it must make two turns.",
+      "visual": "Two gears with clearly visible teeth, 24 and 12 teeth, meshing horizontally. The big gear turns once clockwise, the small gear twice counter-clockwise. Show the text 'Gear ratio 2 : 1'."
     }
   ]
 }
 ```
 
-(Gloss: title "Gear ratio"; s01 narration "Why is climbing a hill on a bicycle easier in a low gear?"; s02 narration "When the 24-tooth gear makes one turn, the 12-tooth gear meshed with it must make two turns."; s02 visual "Two gears with clearly visible teeth, 24 and 12 teeth, meshing horizontally. The big gear turns once clockwise, the small gear twice counter-clockwise. Show the text 'Gear ratio 2 : 1'.")
+A Vietnamese video has `"language": "vi"` and its `title` and `narration` written in Vietnamese; everything else in the
+file stays the same.
 
 Rules:
 - `language` is the language of the narration, subtitles and on-screen text; it selects the TTS role `tts-<language>` and the subtitle language tag. Falls back to `DEFAULT_LANGUAGE` in `config.env`.

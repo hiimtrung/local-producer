@@ -1,8 +1,11 @@
 # local-producer
 
-Science/engineering explainer videos from Obsidian notes, produced on a local AMD machine (Ryzen 7 PRO 7840U,
-Radeon 780M iGPU, Linux, rootless Podman). R&D phase: see `AGENTS.md` (working conventions, current state),
-`CHANGELOG.md` (the research log: every experiment with its numbers) and `local-producer.md` (older spec).
+[![CI](https://github.com/hiimtrung/local-producer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hiimtrung/local-producer/actions/workflows/ci.yml)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
+
+Science/engineering explainer videos from Obsidian notes, produced on your own machine. Developed and measured on a
+Ryzen 7 PRO 7840U with a Radeon 780M iGPU (Linux, rootless Podman). The project is in its R&D phase; see
+[Documentation](#documentation).
 
 What works today is the 3D asset path: our own GPU server with a web UI, also driven from a Blender add-on:
 
@@ -42,6 +45,7 @@ res 512 in ~4.5 min (res 1024 ~19 min); a whole character in ~8 min (Fast preset
 ## Quick start
 
 ```bash
+git clone https://github.com/hiimtrung/local-producer.git && cd local-producer
 make server-up        # builds the image on first start, then open http://127.0.0.1:13305
 ```
 
@@ -65,6 +69,16 @@ The Blender add-on **LocalProducer** talks to the same server and queue (Sidebar
 Download Models, generate; the Library panel lists the server's finished 3D models and imports one); set its "Server Log" preference to `~/.local-producer/server/server.log` for live progress.
 
 `make help` lists all tasks; `make smoke` runs an end-to-end check against the running server.
+
+## Documentation
+
+| Document | What |
+| :--- | :--- |
+| [`AGENTS.md`](AGENTS.md) | working conventions (also for AI coding agents) and the current state of every part |
+| [`CHANGELOG.md`](CHANGELOG.md) | the research log: every experiment with its setup, numbers and conclusion |
+| [`models/README.md`](models/README.md) | where the server keeps weights, engines, results and logs, and the source of each download |
+| [`local-producer.md`](local-producer.md) | the original video-pipeline specification (v2.1, partly superseded) |
+| [`spec-v3-gated-pipeline.md`](spec-v3-gated-pipeline.md) | a proposal for the next video pipeline (not built yet) |
 
 ## Contributing and security
 

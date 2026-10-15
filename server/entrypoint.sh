@@ -2,7 +2,7 @@
 # Run the matting server and the GPU job server side by side; stop both when either exits or on SIGTERM (podman stop).
 # SERVER_ARGS: extra server.py options, split on whitespace on purpose.
 set -u
-# Keep the container's own output after it exits (the container runs with --rm): /data = models/server/.
+# Keep the container's own output after it exits (the container runs with --rm): /data = ~/.local-producer/server.
 exec > >(tee -a /data/container.log) 2>&1
 python -W ignore /opt/lp/server/matte_server.py --port 8083 &
 matte=$!

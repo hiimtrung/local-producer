@@ -1,5 +1,6 @@
 {
   "name": "local-producer-web",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Web UI of the local-producer GPU server (TypeScript, React, Lucent design system)",
@@ -21,5 +22,11 @@
     "@types/react-dom": "19.3.0",
     "esbuild": "0.28.2",
     "typescript": "7.0.2"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hiimtrung/local-producer.git",
+    "directory": "web"
+  },
+  "homepage": "https://github.com/hiimtrung/local-producer"
 }

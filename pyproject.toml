@@ -2,11 +2,16 @@
 # (server/), the add-on inside Blender (blender/local_producer/). `uv sync` creates .venv with the dev tools below.
 [project]
 name = "local-producer"
-version = "0.1.0"
-description = "Science/engineering explainer videos from notes; local text/image-to-3D on an AMD iGPU"
+version = "0.3.0"  # = server/app/__init__.py __version__
+description = "Science/engineering explainer videos from notes; local text/image-to-3D on your own GPU"
 readme = "README.md"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.12"
+
+[project.urls]
+Repository = "https://github.com/hiimtrung/local-producer"
+Issues = "https://github.com/hiimtrung/local-producer/issues"
+Changelog = "https://github.com/hiimtrung/local-producer/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [

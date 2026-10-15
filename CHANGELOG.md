@@ -1487,7 +1487,7 @@ Deleted: root capybara experiments (`.blend`, renders, scripts), all `.blend1` b
 
 **Conclusion & User Decision:**
 - Full feature-film 3D character rigs are completely unviable for automated local explainer video generation on iGPU hardware.
-- Visually, attempting 3D character acting without dedicated human rigging/animators yields awkward, stiff motion and gaudy, uncontrolled colors ("rất gượng, màu mè không kiểm soát được").
+- Visually, attempting 3D character acting without dedicated human rigging/animators yields awkward, stiff motion and gaudy, uncontrolled colors (the reviewer's words, translated: "very stiff, garish, out of control").
 - Compared to the **Google Flow / Google DeepMind** design standard (clean, deliberate, minimalist 2D/isometric vector motion graphics with strict color theory and clear typography), 3D character avatars look amateurish and distract from the educational message.
 - Decision: Abandon complex 3D character avatars for explainer videos. Cleaned up all generated test frames, segments, and images (`frames/`, `segments/`, `test_elder_frames/`, `elder_*.png`).
 
@@ -1628,7 +1628,7 @@ LocalAI side: `Backend process exited unexpectedly … stderr="/backends/rocm-ll
 | Qwen3.8-4B Q8 | 17.5 | 426 | 4/5 | 4/4 | 0/4 | 5.8 GiB |
 | Qwen3-Coder-30B-A3B | — | — | — | — | not benchmarked | — |
 
-- With the 4B model: one JSON run failed because the model looped on a word ("đổi đổi đổi") until the 4000-token limit.
+- With the 4B model: one JSON run failed because the model looped on one Vietnamese word (it means "change": "change change change ...") until the 4000-token limit.
 - After `/backend/shutdown`, GTT drops below 100 MiB (meets the <1 GiB criterion).
 
 ## 2026-10-06 — Findings about LocalAI v4.11.0

@@ -4,11 +4,12 @@
 schema_version = "1.0.0"
 
 id = "local_producer"
-version = "0.14.0"
+version = "0.14.1"
 name = "LocalProducer"
 tagline = "Text or image to a textured 3D model on your local GPU server, and its Library"
-maintainer = "local-producer"
+maintainer = "hiimtrung"
 type = "add-on"
+website = "https://github.com/hiimtrung/local-producer"
 tags = ["3D View", "Mesh"]
 blender_version_min = "4.2.0"
 license = ["SPDX:GPL-3.0-or-later"]
