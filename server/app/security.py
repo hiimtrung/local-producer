@@ -21,7 +21,10 @@ from .settings import MAX_BODY_BYTES
 CSP = "; ".join(
     [
         "default-src 'self'",
-        "script-src 'self'",
+        # 'wasm-unsafe-eval' lets model-viewer compile its bundled meshopt decoder (WebAssembly; model-viewer 4.4
+        # instantiates it at load). It allows WebAssembly compilation only: JavaScript eval stays blocked
+        # (approved by the maintainer on 2026-10-15, SECURITY.md).
+        "script-src 'self' 'wasm-unsafe-eval'",
         "style-src 'self' 'unsafe-inline'",  # React style props and model-viewer's shadow DOM styles
         "img-src 'self' blob: data:",
         "connect-src 'self' blob: data:",

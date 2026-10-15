@@ -6,6 +6,21 @@ Machine: ThinkPad P14s Gen 4, Ryzen 7 PRO 7840U, Radeon 780M (gfx1103), Ubuntu 2
 
 ---
 
+## 2026-10-15 — Dependency updates merged; CSP allows WebAssembly compilation
+
+- **Merged** (squash, CI green): pre-commit 4.6.2, actions/setup-node 7.1.0, ruff 0.17.0, pytest 9.1.1, mypy 2.4.0;
+  @google/model-viewer 4.4.0 with three 0.183.2 (#10: model-viewer 4.4 needs three@^0.183.0, so Dependabot's
+  separate updates, three 0.186.1 among them, could not install); react, react-dom and their types 19.3.0 together
+  (#11; no code changes: the app uses createRoot and the Lucent bundle uses none of the APIs React 19 removed).
+  Every page, the Library dialog with the 3D viewer and the segmented controls checked in headless Chrome.
+- **Found after #10:** model-viewer 4.4 instantiates its bundled meshopt decoder (WebAssembly) at load, which the CSP
+  (`script-src 'self'`) blocked: a console error on every page with a viewer, and meshopt-compressed GLBs would not
+  decode (TRELLIS and Blender GLBs are not compressed that way, so models still showed).
+- **Fix (maintainer approved):** `script-src 'self' 'wasm-unsafe-eval'`. Measured with a same-origin page script
+  under each header: new CSP: eval blocked, new Function blocked, WebAssembly compiles; old CSP: all three blocked.
+  (Probing through the DevTools protocol is not valid: Chrome exempts DevTools evaluation from the CSP, eval "worked"
+  under both headers.) The console error is gone on all pages.
+
 ## 2026-10-15 — Model suggestions, TRELLIS.2 q8 measured, aligned badges
 
 - **Requests (user):** an old "Adding failed: 127.0.0.1 ..." message stayed on the Models page; the TRELLIS.2 set had

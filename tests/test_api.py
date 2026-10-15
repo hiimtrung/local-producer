@@ -253,7 +253,8 @@ def test_security_headers_everywhere(server_env):
     c, _ = server_env
     for path in ("/", "/v1/system", "/app.js"):
         csp = c.get(path).headers["content-security-policy"]
-        assert "script-src 'self'" in csp and "frame-ancestors 'none'" in csp
+        assert "script-src 'self' 'wasm-unsafe-eval';" in csp and "frame-ancestors 'none'" in csp
+        assert "unsafe-eval'" not in csp.replace("'wasm-unsafe-eval'", "")  # JavaScript eval stays blocked
 
 
 def test_oversized_body_is_refused(server_env):
