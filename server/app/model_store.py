@@ -1,5 +1,5 @@
 """The models the pipelines can use: the built-in ones (catalog/models.json, pinned) and ones a user adds from
-Hugging Face, another public https link, or an upload; each can be tested with the loaded engine.
+Hugging Face, any other http(s) link, or an upload; each can be tested with the loaded engine.
 
 <models>/user/<id>/model.json   a user model: family, title, source, files, SHA256 per file
 <models>/user/<id>/<files>      its weights (one diffusion model file, or a TRELLIS.2 set)
@@ -11,20 +11,19 @@ model; the built-in text encoder and VAE go with it) and "trellis2" (trellis-cli
 Safety rules for user models (SECURITY.md):
   * Weights only: .gguf and .safetensors, checked by their header after the download. No pickle formats
     (.ckpt, .pt, .bin), nothing is ever imported or executed; the files are only read by the engine's CLI.
-  * Downloads are https only, and every host (also after redirects) must resolve to public addresses only, so the
-    server cannot be used to reach the machine itself or the local network. Hugging Face files are pinned to the
-    commit the revision pointed at and verified against the size and SHA256 Hugging Face publishes; other links
-    are hashed while they download and the hash is recorded.
+  * Any http or https link is accepted, also on this machine or the local network: the server runs on the user's
+    own machine for that user, who is responsible for the links they give it (maintainer decision 2026-10-15,
+    SECURITY.md). Other schemes (file:, ftp:, ...) are refused, also after redirects. Hugging Face files are pinned
+    to the commit the revision pointed at and verified against the size and SHA256 Hugging Face publishes; other
+    links are hashed while they download and the hash is recorded.
   * Size cap per model and a free-space check; downloads go to a staging directory first.
 """
 
 import hashlib
-import ipaddress
 import json
 import os
 import re
 import shutil
-import socket
 import threading
 import time
 import urllib.parse
@@ -139,35 +138,27 @@ class AddModel(ApiModel):
 # ---------------------------------------------------------------- safe downloads
 
 
-def check_public_url(url: str) -> None:
-    """https, and the host resolves to public addresses only (no loopback, private, link-local or reserved)."""
+def check_link(url: str) -> None:
+    """An http or https link with a host; any host, the user's own machine and network included."""
     u = urllib.parse.urlsplit(url)
-    if u.scheme != "https" or not u.hostname:
-        raise SetupError("only https links are accepted")
-    try:
-        infos = socket.getaddrinfo(u.hostname, u.port or 443, proto=socket.IPPROTO_TCP)
-    except OSError as e:
-        raise SetupError(f"can't resolve {u.hostname}: {e}") from None
-    for info in infos:
-        addr = ipaddress.ip_address(info[4][0])
-        if not addr.is_global:
-            raise SetupError(f"{u.hostname} resolves to a non-public address ({addr})")
+    if u.scheme not in ("http", "https") or not u.hostname:
+        raise SetupError("give an http:// or https:// link")
 
 
-class _PublicRedirect(urllib.request.HTTPRedirectHandler):
+class _LinkRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(
         self, req: urllib.request.Request, fp: IO[bytes], code: int, msg: str, headers: HTTPMessage, newurl: str
     ) -> urllib.request.Request | None:
-        check_public_url(newurl)
+        check_link(newurl)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def public_opener() -> Opener:
-    return urllib.request.build_opener(_PublicRedirect())
+def link_opener() -> Opener:
+    return urllib.request.build_opener(_LinkRedirect())
 
 
 def _get_json(url: str, opener: Opener) -> Any:
-    check_public_url(url)
+    check_link(url)
     req = urllib.request.Request(url, headers={"User-Agent": model_setup.USER_AGENT})
     with opener.open(req, timeout=30) as resp:
         return json.loads(resp.read(8 << 20))
@@ -187,8 +178,8 @@ def check_weights(path: str) -> None:
 
 
 def fetch_unpinned(url: str, out: str, progress: Callable[[int], None], opener: Opener) -> str:
-    """Download a public https link to out (via .part, capped); returns its SHA256."""
-    check_public_url(url)
+    """Download an http(s) link to out (via .part, capped); returns its SHA256."""
+    check_link(url)
     part = out + ".part"
     h, done = hashlib.sha256(), 0
     req = urllib.request.Request(url, headers={"User-Agent": model_setup.USER_AGENT})
@@ -402,7 +393,7 @@ class ModelStore:
         fam = FAMILIES.get(req.family)
         if fam is None:
             raise SetupError(f"unknown model family {req.family}")
-        op = opener or public_opener()
+        op = opener or link_opener()
         p = self.progress
         p.update(running=True, error="", item=req.title, item_done=0, item_size=0, done_items=0, total_items=1,
                  started=time.time(), finished=0.0)  # fmt: skip
@@ -419,7 +410,7 @@ class ModelStore:
                 name = os.path.basename(urllib.parse.urlsplit(req.url).path)
                 if not name.endswith(WEIGHT_SUFFIXES):
                     raise SetupError("the link must end in .gguf or .safetensors")
-                check_public_url(req.url)
+                check_link(req.url)
                 repo = commit = ""
                 plan = [HfFile(path=name, size=0, sha256="")]
                 source = req.url
