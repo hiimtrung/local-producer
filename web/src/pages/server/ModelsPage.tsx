@@ -350,8 +350,9 @@ function AddModelCard({ overview, onAdded }: { overview: ModelsOverview; onAdded
           </div>
         )}
         <p className="footnote muted">
-          Hugging Face files are pinned to the current commit and checked against the SHA256 it publishes; other links
-          must be public https. Only weights (.gguf, .safetensors) are accepted, never code.
+          Hugging Face files are pinned to the current commit and checked against the SHA256 it publishes; any other
+          http(s) link works too, also on this machine or your network: you are responsible for what it points to.
+          Only weights (.gguf, .safetensors) are accepted, never code.
         </p>
         {adding.error ? (
           <div className="row-actions">

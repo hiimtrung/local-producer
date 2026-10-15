@@ -6,6 +6,18 @@ Machine: ThinkPad P14s Gen 4, Ryzen 7 PRO 7840U, Radeon 780M (gfx1103), Ubuntu 2
 
 ---
 
+## 2026-10-15 — Any link for user models; remaining security rows approved
+
+- **Maintainer decisions:** users may give any http or https link for a model, also to this machine or the local
+  network (the server runs on the user's machine for that user, who is responsible for the links); the engine
+  allowlist entry `repo.amd.com` and the token-less `/blender/*` add-on repository are approved as proposed.
+- **Change:** the public-address (SSRF) guard and the https-only rule are gone from `model_store.py`; links must be
+  http or https with a host (also after redirects; `file:`, `ftp:` refused). Kept: weights-only header check,
+  Hugging Face pinning + SHA256, size cap, staging, failed-test refusal.
+- **Checked:** a model added end to end from a plain http server on 127.0.0.1 (unit test); a cross-site page cannot
+  start an add: a text/plain POST (no preflight) gets 422, and the server sends no CORS headers, so the JSON
+  preflight is never granted (now a test). 118 unit tests, mypy, ruff clean.
+
 ## 2026-10-15 — Dependency updates merged; CSP allows WebAssembly compilation
 
 - **Merged** (squash, CI green): pre-commit 4.6.2, actions/setup-node 7.1.0, ruff 0.17.0, pytest 9.1.1, mypy 2.4.0;

@@ -1,9 +1,11 @@
 """User models (server/app/model_store.py, routes/models.py, pipelines/check.py): safe downloads, header checks,
 Hugging Face pinning, uploads, tests with the engine, and jobs that pick a model. No network: DNS and HTTP are fakes."""
 
+import functools
+import http.server
 import json
-import socket
 import struct
+import threading
 
 import pytest
 from conftest import wait_job
@@ -18,26 +20,39 @@ REPO = "leejet/FLUX.2-klein-4B-GGUF"
 COMMIT = "3b1f5a9dc3abb32238b053aeb3d823c30afdacbd"
 
 
-def resolve_to(monkeypatch, address):
-    monkeypatch.setattr(
-        model_store.socket,
-        "getaddrinfo",
-        lambda host, port, proto=0: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, port))],
-    )
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.org/m.gguf",
+        "http://example.org/m.gguf",
+        "https://127.0.0.1:8080/m.gguf",
+        "http://192.168.1.2/m.gguf",
+    ],
+)
+def test_any_http_link_is_accepted_also_on_this_machine_or_the_lan(url):
+    model_store.check_link(url)  # the user's own server, the user's responsibility (SECURITY.md)
 
 
-@pytest.mark.parametrize("address", ["127.0.0.1", "10.0.0.5", "192.168.1.2", "169.254.169.254", "::1"])
-def test_links_to_this_machine_or_the_lan_are_refused(monkeypatch, address):
-    resolve_to(monkeypatch, address)
-    with pytest.raises(SetupError, match="non-public"):
-        model_store.check_public_url("https://example.org/model.gguf")
+@pytest.mark.parametrize("url", ["file:///etc/passwd", "ftp://example.org/m.gguf", "huggingface.co/x/y", "https://"])
+def test_other_schemes_are_refused(url):
+    with pytest.raises(SetupError, match="http"):
+        model_store.check_link(url)
 
 
-def test_only_https_links(monkeypatch):
-    resolve_to(monkeypatch, "93.184.215.14")
-    model_store.check_public_url("https://example.org/model.gguf")
-    with pytest.raises(SetupError, match="https"):
-        model_store.check_public_url("http://example.org/model.gguf")
+def test_a_model_from_a_server_on_this_machine(server_env, tmp_path):
+    """End to end over real HTTP: a plain http server on 127.0.0.1 serves the weights."""
+    (tmp_path / "www").mkdir()
+    (tmp_path / "www" / "local.gguf").write_bytes(GGUF)
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path / "www"))
+    handler.log_message = lambda *a: None
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{srv.server_port}/local.gguf"
+        info = model_store.store.add_from_url(AddModel(family="flux2-klein", title="Local", url=url))
+    finally:
+        srv.shutdown()
+    assert info.source == url and info.size == len(GGUF)
 
 
 def test_weights_are_checked_by_their_header(tmp_path):
@@ -71,7 +86,6 @@ def hf_fake(files):
 
 
 def test_a_hugging_face_file_is_pinned_and_verified(server_env, monkeypatch):
-    resolve_to(monkeypatch, "18.160.0.1")
     opener = hf_fake({"flux-2-klein-4b-Q4_0.gguf": GGUF})
     req = AddModel(
         family="flux2-klein",
@@ -88,7 +102,6 @@ def test_a_hugging_face_file_is_pinned_and_verified(server_env, monkeypatch):
 
 
 def test_a_tampered_hugging_face_download_is_rejected(server_env, monkeypatch):
-    resolve_to(monkeypatch, "18.160.0.1")
     opener = hf_fake({"x.gguf": GGUF})
     opener.files[f"https://huggingface.co/{REPO}/resolve/{COMMIT}/x.gguf"] = b"GGUF" + b"\1" * 60
     req = AddModel(family="flux2-klein", title="X", url=f"https://huggingface.co/{REPO}/resolve/main/x.gguf")
@@ -98,7 +111,6 @@ def test_a_tampered_hugging_face_download_is_rejected(server_env, monkeypatch):
 
 
 def test_a_trellis_folder_needs_the_whole_set(server_env, monkeypatch):
-    resolve_to(monkeypatch, "18.160.0.1")
     files = {f"q8/{n}": GGUF for n in model_store.TRELLIS_FILES}
     url = f"https://huggingface.co/{REPO}/tree/main/q8"
     info = model_store.store.add_from_url(AddModel(family="trellis2", title="T q8", url=url), opener=hf_fake(files))
@@ -162,7 +174,6 @@ def test_suggestions_are_marked_once_added_and_errors_can_be_dismissed(server_en
     sug = c.get("/v1/models").json()["suggestions"]
     assert {s["family"] for s in sug} == {"flux2-klein", "trellis2"} and not any(s["added"] for s in sug)
     q4 = next(s for s in sug if s["url"].endswith("flux-2-klein-4b-Q4_0.gguf"))
-    resolve_to(monkeypatch, "18.160.0.1")
     path = "flux-2-klein-4b-Q4_0.gguf"
     model_store.store.add_from_url(
         AddModel(family="flux2-klein", title="Q4", url=q4["url"]), opener=hf_fake({path: GGUF})
@@ -170,9 +181,19 @@ def test_suggestions_are_marked_once_added_and_errors_can_be_dismissed(server_en
     sug = {s["url"]: s for s in c.get("/v1/models").json()["suggestions"]}
     assert sug[q4["url"]]["added"] and sum(s["added"] for s in sug.values()) == 1
 
-    resolve_to(monkeypatch, "127.0.0.1")
     with pytest.raises(SetupError):
-        model_store.store.add_from_url(AddModel(family="flux2-klein", title="x", url="https://localhost/x.gguf"))
-    assert "non-public" in c.get("/v1/models").json()["adding"]["error"]
+        model_store.store.add_from_url(AddModel(family="flux2-klein", title="x", url="https://example.org/x.bin"))
+    assert ".gguf" in c.get("/v1/models").json()["adding"]["error"]
     assert c.delete("/v1/models/adding").status_code == 204
     assert c.get("/v1/models").json()["adding"]["error"] == ""
+
+
+def test_a_cross_site_page_cannot_add_a_model(server_env):
+    """A form or fetch without a preflight can only send text/plain: refused. The JSON preflight is never granted."""
+    c, _ = server_env
+    body = '{"family": "flux2-klein", "title": "x", "url": "http://127.0.0.1:9/x.gguf"}'
+    r = c.post("/v1/models", content=body, headers={"Content-Type": "text/plain", "Origin": "https://evil.example"})
+    assert r.status_code == 422 and "access-control-allow-origin" not in r.headers
+    pre = c.options("/v1/models", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"})
+    assert "access-control-allow-origin" not in pre.headers
+    assert not c.get("/v1/models").json()["adding"]["running"]
