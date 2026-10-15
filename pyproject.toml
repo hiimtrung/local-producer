@@ -12,7 +12,7 @@ requires-python = ">=3.12"
 dev = [
     "ruff==0.17.0",
     "mypy==2.3.1",
-    "pytest==8.4.2",
+    "pytest==9.1.1",
     "pre-commit==4.3.0",
     "httpx==0.28.1",
     # same versions as server/requirements.txt, so the server is tested with what the image runs
