@@ -41,7 +41,7 @@ class ImageCommon(BaseModel):
     cfg_scale: float = Field(1.0, ge=0.0, le=30.0, description="Guidance; FLUX.2-klein is distilled for 1.0")
     seed: int = Field(-1, ge=-1, le=2**31 - 1, description="-1 = random")
     model: str | None = Field(
-        None, pattern=MODEL_ID, description="A FLUX.2-klein model id (Models page); empty = built in"
+        None, pattern=MODEL_ID, description="A FLUX.2-klein model id (Models page); empty = the default one"
     )
 
 

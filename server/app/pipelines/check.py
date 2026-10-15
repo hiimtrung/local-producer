@@ -42,6 +42,8 @@ class ModelTest(Pipeline[CheckParams]):
             raise JobFailed("unknown model")
         if not model.present:
             raise JobFailed(f"{model.title}: files are missing")
+        if not next(c for c in store.components_status() if c.family == model.family).ready:
+            raise JobFailed(f"{model.title}: the shared components are missing; download them on the Models page")
         family = FAMILIES[model.family]
         runner = engines.runner(family.runner)
         ctx.info.model = model.id
@@ -60,11 +62,12 @@ class ModelTest(Pipeline[CheckParams]):
                 inp = os.path.join(ctx.out_dir, "input.png")
                 shutil.copyfile(os.path.join(paths.addon, "samples", "cat.png"), inp)
                 out = os.path.join(ctx.out_dir, "model.glb")
-                args = [
-                    "--image", inp, "--output", out, "--models", store.path(model, "dir"), "--seed", "1",
-                    "--res", "512", "--steps", "1", "--no-texture", "--webp", "off", "--require-gpu",
-                ]  # fmt: skip
-                run_cli(self.kind, runner, args, ctx.timeout, on_line=ctx.progress_line, cancel=ctx.cancel)
+                with store.trellis_dir(model) as models_dir:
+                    args = [
+                        "--image", inp, "--output", out, "--models", models_dir, "--seed", "1",
+                        "--res", "512", "--steps", "1", "--no-texture", "--webp", "off", "--require-gpu",
+                    ]  # fmt: skip
+                    run_cli(self.kind, runner, args, ctx.timeout, on_line=ctx.progress_line, cancel=ctx.cancel)
                 for extra in ("model.ply", "model_base.png"):
                     if os.path.exists(os.path.join(ctx.out_dir, extra)):
                         os.unlink(os.path.join(ctx.out_dir, extra))

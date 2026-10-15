@@ -17,7 +17,10 @@ the home directory here, outside every image layer: rebuilding the image keeps t
 **Fill them** with the web UI (Server > Engines, Server > Models), the add-on's "Download Models" button, or
 `make setup` (= `make engines` + `make models`). `server/app/model_setup.py` and `server/app/engines/registry.py`
 fetch every entry of `server/catalog/models.json` / `server/catalog/engines.json` (pinned URL + size + SHA256), verify
-and install it; the two FLUX.2 files are downloaded in bf16 and converted to q8_0 with the loaded engine's `sd-cli`.
+and install it; the Qwen3-4B text encoder is downloaded in bf16 and converted to q8_0 with the loaded engine's
+`sd-cli`. The catalog's items are only the **shared components** each model family runs with; the **main models**
+(a FLUX.2-klein diffusion model, a set of TRELLIS.2 flow models) are options added on the Models page
+(`server/app/model_store.py`); the setup adds the catalog's recommended one for a family that has none.
 `make models-status` / `make models-verify` / `make engines-status` check what is installed. The catalogs are
 authoritative; the tables document the sources.
 
@@ -25,8 +28,9 @@ authoritative; the tables document the sources.
 
 | Path | Contents | Source |
 | :--- | :--- | :--- |
-| `trellis2/` | TRELLIS.2 GGUF, the f16 set (~15 GB): `birefnet`, `dinov3`, `ss_flow`, `ss_dec`, `shape_flow_512`, `shape_flow_1024`, `shape_dec`, `tex_flow_512`, `tex_flow_1024`, `tex_dec` (`.gguf`) + `README.md` | Hugging Face `ilintar/trellis2-gguf` rev `a57397bd3d351599d9729fc144b3f87c3f87d65b`, the files at the repo root (not the `q8`/`q4` folders) |
-| `flux2/` | `flux-2-klein-4b-q8_0.gguf` (4.2 GB), `qwen_3_4b-q8_0.gguf` (4.3 GB), `flux2-vae.safetensors` (bf16, 336 MB) | `black-forest-labs/FLUX.2-klein-4B` rev `e7b7dc27f91deacad38e78976d1f2b499d76a294` `flux-2-klein-4b.safetensors`; `Comfy-Org/vae-text-encorder-for-flux-klein-4b` rev `5f526678002e43af5551dadb73ce2e8c91b43afe` `split_files/text_encoders/qwen_3_4b.safetensors` and `split_files/vae/flux2-vae.safetensors`. The two big files are converted once to q8_0 (CPU, ~5 s each), then the bf16 originals can be deleted: `sd-cli -M convert -m <file>.safetensors --type q8_0 -o flux2/<name>-q8_0.gguf` (done by `model_setup.py`) |
+| `trellis2/` | TRELLIS.2 shared components, f16 GGUF (2.65 GB): `dinov3` (image encoder), `ss_dec`, `shape_dec`, `tex_dec` (decoders) | Hugging Face `ilintar/trellis2-gguf` rev `a57397bd3d351599d9729fc144b3f87c3f87d65b`, the files at the repo root |
+| `flux2/` | FLUX.2-klein shared components: `qwen_3_4b-q8_0.gguf` (text encoder, 4.3 GB), `flux2-vae.safetensors` (bf16, 336 MB) | `Comfy-Org/vae-text-encorder-for-flux-klein-4b` rev `5f526678002e43af5551dadb73ce2e8c91b43afe` `split_files/text_encoders/qwen_3_4b.safetensors` and `split_files/vae/flux2-vae.safetensors`. The text encoder is converted once to q8_0 (CPU, ~5 s), then the bf16 original is deleted: `sd-cli -M convert -m <file>.safetensors --type q8_0 -o flux2/<name>-q8_0.gguf` (done by `model_setup.py`) |
+| `user/<id>/` | main models: a FLUX.2-klein diffusion model file, or TRELLIS.2 flow models (`ss_flow`, `shape_flow_512`, `tex_flow_512`, optional `shape_flow_1024`, `tex_flow_1024`), with `model.json` and `sha256.json`; a TRELLIS.2 run links them with the components into one temporary directory | added on the Models page: the catalog's suggestions (e.g. `leejet/FLUX.2-klein-4B-GGUF`, the `q8`/`q4` folders or the root of `ilintar/trellis2-gguf`), any Hugging Face file / folder, http(s) link or upload |
 | `rembg/` | rembg ONNX models (`isnet-general-use`, ...) | downloaded by the matting server on first use |
 | `.cache/` | archives and bf16 originals while they download / convert (deleted afterwards; `.part` files resume an interrupted download) | `server/app/model_setup.py` |
 

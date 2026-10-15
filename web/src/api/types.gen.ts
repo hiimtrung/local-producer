@@ -46,6 +46,12 @@ export interface CheckParams {
   model: string;
 }
 
+export interface Component {
+  role: string;
+  path: string;
+  present: boolean;
+}
+
 export interface ComposeRequest {
   prompt: string;
   framing?: Framing | null;
@@ -93,7 +99,7 @@ export interface EditParams {
   cfg_scale?: number;
   /** -1 = random (default -1) */
   seed?: number;
-  /** A FLUX.2-klein model id (Models page); empty = built in */
+  /** A FLUX.2-klein model id (Models page); empty = the default one */
   model?: string | null;
   image: ImageRef;
   /** a_pose: arms away from the body for rigging (default "a_pose") */
@@ -138,6 +144,12 @@ export interface Family {
   description: string;
 }
 
+export interface FamilyComponents {
+  family: string;
+  components: Component[];
+  ready: boolean;
+}
+
 /** Image-to-3D framing appended to a text-to-image prompt. */
 export interface Framing {
   /** (default "character") */
@@ -171,7 +183,7 @@ export interface GenerateParams {
   cfg_scale?: number;
   /** -1 = random (default -1) */
   seed?: number;
-  /** A FLUX.2-klein model id (Models page); empty = built in */
+  /** A FLUX.2-klein model id (Models page); empty = the default one */
   model?: string | null;
   prompt: string;
   /** Image-to-3D framing appended to the prompt; null = none */
@@ -341,7 +353,7 @@ export interface MeshParams {
   shape_guidance?: number | null;
   /** HR token budget at res 1024+; lower is faster, loses detail */
   max_tokens?: number | null;
-  /** A TRELLIS.2 model set id (Models page); empty = built in */
+  /** A TRELLIS.2 model id (Models page); empty = the default one */
   model?: string | null;
 }
 
@@ -371,7 +383,6 @@ export interface ModelInfo {
   id: string;
   family: string;
   title: string;
-  builtin: boolean;
   source: string;
   size: number;
   /** All its files are on disk (default true) */
@@ -380,10 +391,13 @@ export interface ModelInfo {
   /** Role -> path relative to the models directory */
   files: { [key: string]: string };
   check: ModelCheck | null;
+  /** Jobs of this family that name no model run with it (default false) */
+  default: boolean;
 }
 
 export interface ModelsOverview {
   families: Family[];
+  components: FamilyComponents[];
   models: ModelInfo[];
   suggestions: Suggestion[];
   adding: DownloadProgress;
@@ -441,6 +455,7 @@ export interface SetupStatus {
   download: DownloadProgress;
   verify: VerifyState;
   models_ready: boolean;
+  to_add: Suggestion[];
   engine: EngineStatus;
   engine_install: DownloadProgress;
 }
@@ -474,6 +489,8 @@ export interface Suggestion {
   url: string;
   size: number;
   note: string;
+  /** What the setup download adds when the family has no model (default false) */
+  recommended: boolean;
   /** A model from this link is already on the server (default false) */
   added: boolean;
 }

@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .. import storage
 from ..engines.registry import engines
-from ..gpu import run_cli
+from ..gpu import JobFailed, run_cli
 from ..model_store import MODEL_ID, store
 from ..settings import config
 from .base import ImageRef, JobContext, Pipeline
@@ -40,7 +40,7 @@ class MeshParams(BaseModel):
         None, ge=4096, le=49152, description="HR token budget at res 1024+; lower is faster, loses detail"
     )
     model: str | None = Field(
-        None, pattern=MODEL_ID, description="A TRELLIS.2 model set id (Models page); empty = built in"
+        None, pattern=MODEL_ID, description="A TRELLIS.2 model id (Models page); empty = the default one"
     )
 
 
@@ -84,12 +84,14 @@ class ImageTo3D(Pipeline[MeshParams]):
         cfg = config.get()
         model = store.require("trellis2", params.model)
         res = params.resolution or cfg.mesh_resolution
+        if res > 512 and not {"shape_flow_1024", "tex_flow_1024"} <= model.files.keys():
+            raise JobFailed(f"{model.title} has no 1024 flow models; use res 512 or another model")
         steps = params.steps or cfg.mesh_steps
         seed = resolve_seed(params.seed)
         out = os.path.join(ctx.out_dir, "model.glb")
         args = [
             "--image", inp, "--output", out,
-            "--models", store.path(model, "dir"), "--seed", str(seed), "--res", str(res),
+            "--seed", str(seed), "--res", str(res),
             "--steps", str(steps), "--webp", "off", "--require-gpu",
         ]  # fmt: skip
         if not params.texture:
@@ -111,7 +113,11 @@ class ImageTo3D(Pipeline[MeshParams]):
                 ctx.info.faces = int(m.group(1))
             ctx.progress_line(line)
 
-        run_cli(f"trellis-{res}", engines.runner("trellis-cli"), args, ctx.timeout, on_line=on_line, cancel=ctx.cancel)
+        with store.trellis_dir(model) as models_dir:
+            run_cli(
+                f"trellis-{res}", engines.runner("trellis-cli"), [*args, "--models", models_dir], ctx.timeout,
+                on_line=on_line, cancel=ctx.cancel,
+            )  # fmt: skip
         for extra in ("model.ply", "model_base.png"):  # side outputs trellis-cli writes next to the GLB
             p = os.path.join(ctx.out_dir, extra)
             if os.path.exists(p):

@@ -1,5 +1,5 @@
 {
-  "_comment": "Weights the server's pipelines use, installed under MODELS_DIR (a Podman volume in the container setup). Portable across engine packages (catalog/engines.json): GGUF and safetensors files work with the ROCm, CUDA and Metal builds alike. Pinned by URL (fixed release / revision), size and SHA256; read by app/model_setup.py. Bumping one means updating url, size and sha256 together and recording the change in CHANGELOG.md.",
+  "_comment": "Shared components the server's model families need, installed under MODELS_DIR (a Podman volume in the container setup): the FLUX.2-klein text encoder and VAE, the TRELLIS.2 image encoder and decoders. The main models (a FLUX.2-klein diffusion model, a set of TRELLIS.2 flow models) are options the user adds (app/model_store.py); \"suggestions\" lists known ones. Portable across engine packages (catalog/engines.json): GGUF and safetensors files work with the ROCm, CUDA and Metal builds alike. Pinned by URL (fixed release / revision), size and SHA256; read by app/model_setup.py. Bumping one means updating url, size and sha256 together and recording the change in CHANGELOG.md.",
   "version": 1,
   "_hosts": "A download (and every redirect it follows) must be https and its host must equal one of these domains or end with '.' + one of them (CDN hosts vary, e.g. us.aws.cdn.hf.co, release-assets.githubusercontent.com).",
   "allowed_domains": [
@@ -8,15 +8,7 @@
   ],
   "items": [
     {
-      "id": "TRELLIS.2 birefnet",
-      "kind": "file",
-      "url": "https://huggingface.co/ilintar/trellis2-gguf/resolve/a57397bd3d351599d9729fc144b3f87c3f87d65b/birefnet.gguf",
-      "size": 882749024,
-      "sha256": "10c5dd4dcac904cf81c9a16180eb66f167dd52ab55867f54a44567b0b2babbc1",
-      "dest": "trellis2/birefnet.gguf"
-    },
-    {
-      "id": "TRELLIS.2 dinov3",
+      "id": "TRELLIS.2 image encoder (DINOv3)",
       "kind": "file",
       "url": "https://huggingface.co/ilintar/trellis2-gguf/resolve/a57397bd3d351599d9729fc144b3f87c3f87d65b/dinov3.gguf",
       "size": 606773440,
@@ -24,15 +16,7 @@
       "dest": "trellis2/dinov3.gguf"
     },
     {
-      "id": "TRELLIS.2 ss_flow",
-      "kind": "file",
-      "url": "https://huggingface.co/ilintar/trellis2-gguf/resolve/a57397bd3d351599d9729fc144b3f87c3f87d65b/ss_flow.gguf",
-      "size": 2586488480,
-      "sha256": "1dfbef1b80ddea422a6189ff9ac29a244c4482cfbaa01870a0c0ea76d3fb9ae6",
-      "dest": "trellis2/ss_flow.gguf"
-    },
-    {
-      "id": "TRELLIS.2 ss_dec",
+      "id": "TRELLIS.2 structure decoder",
       "kind": "file",
       "url": "https://huggingface.co/ilintar/trellis2-gguf/resolve/a57397bd3d351599d9729fc144b3f87c3f87d65b/ss_dec.gguf",
       "size": 147379392,
@@ -40,23 +24,7 @@
       "dest": "trellis2/ss_dec.gguf"
     },
     {
-      "id": "TRELLIS.2 shape_flow_512",
-      "kind": "file",
-      "url": "https://huggingface.co/ilintar/trellis2-gguf/resolve/a57397bd3d351599d9729fc144b3f87c3f87d65b/shape_flow_512.gguf",
-      "size": 2586636032,
-      "sha256": "fef397f3600e2fab327a98b3edd3cc8377e9741eef870f3ea3f40235875828fb",
-      "dest": "trellis2/shape_flow_512.gguf"
-    },
-    {
-      "id": "TRELLIS.2 shape_flow_1024",
-      "kind": "file",
-      "url": "https://huggingface.co/ilintar/trellis2-gguf/resolve/a57397bd3d351599d9729fc144b3f87c3f87d65b/shape_flow_1024.gguf",
-      "size": 2586636032,
-      "sha256": "7d0e9903bf132a5d78f289eaa2fa4050bcd52c689716406cbf66b76cdfa4656c",
-      "dest": "trellis2/shape_flow_1024.gguf"
-    },
-    {
-      "id": "TRELLIS.2 shape_dec",
+      "id": "TRELLIS.2 shape decoder",
       "kind": "file",
       "url": "https://huggingface.co/ilintar/trellis2-gguf/resolve/a57397bd3d351599d9729fc144b3f87c3f87d65b/shape_dec.gguf",
       "size": 948745344,
@@ -64,23 +32,7 @@
       "dest": "trellis2/shape_dec.gguf"
     },
     {
-      "id": "TRELLIS.2 tex_flow_512",
-      "kind": "file",
-      "url": "https://huggingface.co/ilintar/trellis2-gguf/resolve/a57397bd3d351599d9729fc144b3f87c3f87d65b/tex_flow_512.gguf",
-      "size": 2586734336,
-      "sha256": "0e81b8213191369dc023eb270650f0ccded29f39bf0bbb7a1fe5d4bcefc15b79",
-      "dest": "trellis2/tex_flow_512.gguf"
-    },
-    {
-      "id": "TRELLIS.2 tex_flow_1024",
-      "kind": "file",
-      "url": "https://huggingface.co/ilintar/trellis2-gguf/resolve/a57397bd3d351599d9729fc144b3f87c3f87d65b/tex_flow_1024.gguf",
-      "size": 2586734336,
-      "sha256": "c0a51917c1e5a9dad4d8a49cdf47553e21fd47716d46e53c5f44fcc7bf7f3af1",
-      "dest": "trellis2/tex_flow_1024.gguf"
-    },
-    {
-      "id": "TRELLIS.2 tex_dec",
+      "id": "TRELLIS.2 texture decoder",
       "kind": "file",
       "url": "https://huggingface.co/ilintar/trellis2-gguf/resolve/a57397bd3d351599d9729fc144b3f87c3f87d65b/tex_dec.gguf",
       "size": 948713888,
@@ -96,19 +48,6 @@
       "dest": "flux2/flux2-vae.safetensors"
     },
     {
-      "id": "FLUX.2-klein-4B diffusion model, q8_0",
-      "kind": "convert",
-      "type": "q8_0",
-      "source": {
-        "url": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B/resolve/e7b7dc27f91deacad38e78976d1f2b499d76a294/flux-2-klein-4b.safetensors",
-        "size": 7751105712,
-        "sha256": "ec3d4e733a771f61c052fb4856c48b336c55eaf2c65487c2a1faeb9bbda7a343"
-      },
-      "size": 4167919040,
-      "sha256": "ff2c8957ed8caaddf605938f435cf8aad96587a543db691758505588aca04427",
-      "dest": "flux2/flux-2-klein-4b-q8_0.gguf"
-    },
-    {
       "id": "Qwen3-4B text encoder, q8_0",
       "kind": "convert",
       "type": "q8_0",
@@ -122,49 +61,35 @@
       "dest": "flux2/qwen_3_4b-q8_0.gguf"
     }
   ],
-  "models": [
-    {
-      "id": "flux2-klein-4b-q8_0",
-      "family": "flux2-klein",
-      "title": "FLUX.2-klein-4B q8_0 (built in)",
-      "files": {
-        "diffusion": "flux2/flux-2-klein-4b-q8_0.gguf",
-        "text_encoder": "flux2/qwen_3_4b-q8_0.gguf",
-        "vae": "flux2/flux2-vae.safetensors"
-      }
+  "_components": "Per family: role -> file (relative to MODELS_DIR) every model of the family runs with. A model a user adds supplies the rest: the FLUX.2-klein diffusion model, the TRELLIS.2 flow models.",
+  "components": {
+    "flux2-klein": {
+      "text_encoder": "flux2/qwen_3_4b-q8_0.gguf",
+      "vae": "flux2/flux2-vae.safetensors"
     },
-    {
-      "id": "trellis2-f16",
-      "family": "trellis2",
-      "title": "TRELLIS.2 f16 (built in)",
-      "files": {
-        "dir": "trellis2"
-      }
+    "trellis2": {
+      "dinov3": "trellis2/dinov3.gguf",
+      "ss_dec": "trellis2/ss_dec.gguf",
+      "shape_dec": "trellis2/shape_dec.gguf",
+      "tex_dec": "trellis2/tex_dec.gguf"
     }
-  ],
-  "_models": "The built-in models the pipelines use by default, made of the items above. Users can add more (app/model_store.py).",
-  "_suggestions": "Models known to fit the families, offered on the Models page with one click; added like any user model (pinned to the Hugging Face commit, SHA256-checked) and to be tested on the machine.",
+  },
+  "_suggestions": "Main models known to fit the families, offered on the Models page with one click; added like any user model (pinned to the Hugging Face commit, SHA256-checked) and to be tested on the machine. A TRELLIS.2 folder contributes only its flow models. \"recommended\": the one the setup download adds when a family has no model yet.",
   "suggestions": [
     {
-      "family": "trellis2",
-      "title": "TRELLIS.2 q8_0 (ilintar)",
-      "url": "https://huggingface.co/ilintar/trellis2-gguf/tree/a57397bd3d351599d9729fc144b3f87c3f87d65b/q8",
-      "size": 9997159776,
-      "note": "Same files quantised to 8 bit: ~10 GB instead of 15.3 GB"
-    },
-    {
-      "family": "trellis2",
-      "title": "TRELLIS.2 q4 (ilintar)",
-      "url": "https://huggingface.co/ilintar/trellis2-gguf/tree/a57397bd3d351599d9729fc144b3f87c3f87d65b/q4",
-      "size": 6546263488,
-      "note": "4-bit set, 6.5 GB; smallest, may lose detail"
+      "family": "flux2-klein",
+      "title": "FLUX.2-klein-4B Q8_0 (leejet)",
+      "url": "https://huggingface.co/leejet/FLUX.2-klein-4B-GGUF/blob/main/flux-2-klein-4b-Q8_0.gguf",
+      "size": 4300629440,
+      "note": "4.3 GB, closest to the original; from the stable-diffusion.cpp author",
+      "recommended": true
     },
     {
       "family": "flux2-klein",
       "title": "FLUX.2-klein-4B Q4_0 (leejet)",
       "url": "https://huggingface.co/leejet/FLUX.2-klein-4B-GGUF/blob/main/flux-2-klein-4b-Q4_0.gguf",
       "size": 2460378560,
-      "note": "2.5 GB; from the stable-diffusion.cpp author"
+      "note": "2.5 GB, smallest"
     },
     {
       "family": "flux2-klein",
@@ -186,6 +111,28 @@
       "url": "https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/blob/main/flux-2-klein-4b-F16.gguf",
       "size": 7751115328,
       "note": "7.8 GB, unquantised"
+    },
+    {
+      "family": "trellis2",
+      "title": "TRELLIS.2 q8 (ilintar)",
+      "url": "https://huggingface.co/ilintar/trellis2-gguf/tree/a57397bd3d351599d9729fc144b3f87c3f87d65b/q8",
+      "size": 6880667296,
+      "note": "Flow models quantised to 8 bit, 6.9 GB; meshes like f16, measured 223 s vs 268 s",
+      "recommended": true
+    },
+    {
+      "family": "trellis2",
+      "title": "TRELLIS.2 q4 (ilintar)",
+      "url": "https://huggingface.co/ilintar/trellis2-gguf/tree/a57397bd3d351599d9729fc144b3f87c3f87d65b/q4",
+      "size": 3652634272,
+      "note": "4-bit flow models, 3.7 GB; smallest, may lose detail"
+    },
+    {
+      "family": "trellis2",
+      "title": "TRELLIS.2 f16 (ilintar)",
+      "url": "https://huggingface.co/ilintar/trellis2-gguf/tree/a57397bd3d351599d9729fc144b3f87c3f87d65b",
+      "size": 12933229216,
+      "note": "Unquantised flow models, 12.9 GB"
     }
   ]
 }

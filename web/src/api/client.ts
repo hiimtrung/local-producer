@@ -127,6 +127,7 @@ export const api = {
     await send("DELETE", "/v1/models/adding");
   },
   checkModel: (id: string) => json<T.Job>("POST", `/v1/models/${encodeURIComponent(id)}/check`),
+  defaultModel: (id: string) => json<T.ModelInfo>("PUT", `/v1/models/${encodeURIComponent(id)}/default`),
   removeModel: async (id: string): Promise<void> => {
     await send("DELETE", `/v1/models/${encodeURIComponent(id)}`);
   },

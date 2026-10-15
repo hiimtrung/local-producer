@@ -1,12 +1,16 @@
-"""The models the pipelines can use: the built-in ones (catalog/models.json, pinned) and ones a user adds from
-Hugging Face, any other http(s) link, or an upload; each can be tested with the loaded engine.
+"""The models the pipelines can use. A family's shared components (catalog/models.json "components", pinned,
+installed by model_setup.py) run with every main model of that family; the main models are options the user adds
+from Hugging Face, any other http(s) link, or an upload (catalog/models.json "suggestions" lists known ones). Each
+can be tested with the loaded engine.
 
-<models>/user/<id>/model.json   a user model: family, title, source, files, SHA256 per file
-<models>/user/<id>/<files>      its weights (one diffusion model file, or a TRELLIS.2 set)
+<models>/user/<id>/model.json   a model: family, title, source, files, SHA256 per file
+<models>/user/<id>/<files>      its weights (one diffusion model file, or the TRELLIS.2 flow models)
 <data>/model-checks.json        the last test of every model: which engine, when, how long, the error if any
+<data>/model-defaults.json      family -> the model a job runs with when it names none
 
 A family is a kind of model a pipeline knows how to run with an engine runner: "flux2-klein" (sd-cli: a diffusion
-model; the built-in text encoder and VAE go with it) and "trellis2" (trellis-cli: a folder of TRELLIS.2 GGUF files).
+model + the Qwen3-4B text encoder and VAE components) and "trellis2" (trellis-cli: the flow models + the DINOv3
+image encoder and decoder components, linked into one directory per run because trellis-cli reads a directory).
 
 Safety rules for user models (SECURITY.md):
   * Weights only: .gguf and .safetensors, checked by their header after the download. No pickle formats
@@ -24,12 +28,14 @@ import json
 import os
 import re
 import shutil
+import tempfile
 import threading
 import time
 import urllib.parse
 import urllib.request
 import uuid
 from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from http.client import HTTPMessage
 from typing import IO, Any, Literal
 
@@ -45,11 +51,8 @@ MODEL_ID = r"^[a-z0-9][a-z0-9._-]{0,79}$"
 MAX_MODEL_BYTES = 64 * 2**30
 WEIGHT_SUFFIXES = (".gguf", ".safetensors")
 HF_HOSTS = ["huggingface.co", "hf.co"]
-TRELLIS_FILES = (
-    "birefnet.gguf", "dinov3.gguf", "ss_flow.gguf", "ss_dec.gguf", "shape_flow_512.gguf", "shape_dec.gguf",
-    "tex_flow_512.gguf", "tex_dec.gguf",
-)  # fmt: skip
-TRELLIS_OPTIONAL = ("shape_flow_1024.gguf", "tex_flow_1024.gguf")  # needed for res 1024 and 1536 only
+TRELLIS_FLOWS = ("ss_flow", "shape_flow_512", "tex_flow_512")  # what a TRELLIS.2 model brings
+TRELLIS_OPTIONAL = ("shape_flow_1024", "tex_flow_1024")  # needed for res 1024 and 1536 only
 CHUNK = 1 << 20
 
 
@@ -71,8 +74,8 @@ FAMILIES: dict[str, Family] = {
             task="image",
             runner="sd-cli",
             adds="file",
-            description="A FLUX.2-klein diffusion model, .gguf or .safetensors (e.g. another quantisation such as "
-            "Q4_0). It runs with the built-in Qwen3-4B text encoder and VAE.",
+            description="A FLUX.2-klein-4B diffusion model, .gguf or .safetensors (e.g. a quantisation such as "
+            "Q8_0 or Q4_0). It runs with the shared Qwen3-4B text encoder and VAE.",
         ),
         Family(
             id="trellis2",
@@ -80,8 +83,9 @@ FAMILIES: dict[str, Family] = {
             task="mesh",
             runner="trellis-cli",
             adds="folder",
-            description="A Hugging Face folder with the TRELLIS.2 GGUF files (birefnet, dinov3, ss_flow, ss_dec, "
-            "shape_flow_512, shape_dec, tex_flow_512, tex_dec; the _1024 flows for res 1024+).",
+            description="A Hugging Face folder with the TRELLIS.2 flow models as GGUF (ss_flow, shape_flow_512, "
+            "tex_flow_512; the _1024 ones for res 1024+). Only those are downloaded: they run with the shared "
+            "DINOv3 image encoder and decoders.",
         ),
     )
 }
@@ -100,13 +104,13 @@ class ModelInfo(ApiModel):
     id: str
     family: str
     title: str
-    builtin: bool
     source: str
     size: int
     present: bool = Field(True, description="All its files are on disk")
     added_at: float | None = None
     files: dict[str, str] = Field(description="Role -> path relative to the models directory")
     check: ModelCheck | None = None
+    default: bool = Field(False, description="Jobs of this family that name no model run with it")
 
 
 class Suggestion(ApiModel):
@@ -115,11 +119,25 @@ class Suggestion(ApiModel):
     url: str
     size: int
     note: str
+    recommended: bool = Field(False, description="What the setup download adds when the family has no model")
     added: bool = Field(False, description="A model from this link is already on the server")
+
+
+class Component(ApiModel):
+    role: str
+    path: str
+    present: bool
+
+
+class FamilyComponents(ApiModel):
+    family: str
+    components: list[Component]
+    ready: bool
 
 
 class ModelsOverview(ApiModel):
     families: list[Family]
+    components: list[FamilyComponents]
     models: list[ModelInfo]
     suggestions: list[Suggestion]
     adding: model_setup.DownloadProgress
@@ -276,24 +294,45 @@ class ModelStore:
                 json.dump({k: v.model_dump() for k, v in checks.items()}, f, indent=2)
             os.replace(tmp, self.checks_file)
 
-    def _builtins(self) -> Iterator[ModelInfo]:
-        with open(model_setup.MANIFEST) as f:
-            raw = json.load(f)
-        sizes = {it["dest"]: int(it["size"]) for it in raw["items"]}
-        for m in raw.get("models", []):
-            files: dict[str, str] = m["files"]
-            rels = [r for r in files.values()]
-            members = [d for d in sizes if any(d == r or d.startswith(r.rstrip("/") + "/") for r in rels)]
-            yield ModelInfo(
-                id=m["id"],
-                family=m["family"],
-                title=m["title"],
-                builtin=True,
-                source="Built in (server/catalog/models.json)",
-                size=sum(sizes[d] for d in members),
-                present=all(os.path.exists(os.path.join(paths.models, d)) for d in members),
-                files=files,
-            )
+    @property
+    def defaults_file(self) -> str:
+        return os.path.join(paths.data, "model-defaults.json")
+
+    @staticmethod
+    def components(family: str) -> dict[str, str]:
+        """Role -> path relative to the models directory of the family's shared components."""
+        return dict(model_setup.load_manifest().get("components", {}).get(family, {}))
+
+    def components_status(self) -> list[FamilyComponents]:
+        out = []
+        for fam in FAMILIES:
+            comps = [
+                Component(role=r, path=rel, present=os.path.exists(os.path.join(paths.models, rel)))
+                for r, rel in self.components(fam).items()
+            ]
+            out.append(FamilyComponents(family=fam, components=comps, ready=all(c.present for c in comps)))
+        return out
+
+    def _defaults(self) -> dict[str, str]:
+        try:
+            with open(self.defaults_file) as f:
+                return {str(k): str(v) for k, v in json.load(f).items()}
+        except (OSError, ValueError, AttributeError):
+            return {}
+
+    def set_default(self, model_id: str) -> ModelInfo:
+        m = self.get(model_id)
+        if m is None:
+            raise SetupError("unknown model")
+        with self.lock:
+            defaults = self._defaults() | {m.family: m.id}
+            os.makedirs(paths.data, exist_ok=True)
+            tmp = self.defaults_file + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(defaults, f, indent=2)
+            os.replace(tmp, self.defaults_file)
+        m.default = True
+        return m
 
     def _user(self) -> Iterator[ModelInfo]:
         if not os.path.isdir(self.user_dir):
@@ -301,23 +340,45 @@ class ModelStore:
         for mid in sorted(os.listdir(self.user_dir)):
             try:
                 with open(os.path.join(self.user_dir, mid, "model.json")) as f:
-                    info = ModelInfo.model_validate(json.load(f))
+                    raw = json.load(f)
+                raw.pop("builtin", None)  # written by servers before 0.4
+                info = ModelInfo.model_validate(raw)
             except (OSError, ValueError):
                 continue
-            if info.id != mid or info.builtin:
+            if info.id != mid or info.family not in FAMILIES:
                 continue
             info.present = all(os.path.exists(os.path.join(paths.models, r)) for r in info.files.values())
             yield info
 
     def all(self) -> list[ModelInfo]:
+        """Every added model, sorted by when it was added; one per family is marked default (see _default)."""
         checks = self._checks()
-        out = [*self._builtins(), *self._user()]
+        out = sorted(self._user(), key=lambda m: (m.added_at or 0.0, m.id))
         for m in out:
             m.check = checks.get(m.id)
+        defaults = self._defaults()
+        for fam in FAMILIES:
+            d = self._default([m for m in out if m.family == fam], defaults.get(fam))
+            if d is not None:
+                d.default = True
         return out
+
+    @staticmethod
+    def _default(models: list[ModelInfo], chosen: str | None) -> ModelInfo | None:
+        """The chosen default while it is usable, else the first model that is present and has not failed."""
+        usable = [m for m in models if m.present and not (m.check and m.check.state == "failed")]
+        return next((m for m in usable if m.id == chosen), None) or next(iter(usable), None)
 
     def get(self, model_id: str) -> ModelInfo | None:
         return next((m for m in self.all() if m.id == model_id), None)
+
+    def recommended(self) -> list[Suggestion]:
+        """The recommended suggestion of every family that has no usable model yet (what the setup adds)."""
+        models = self.all()
+        return [
+            s for s in self.suggestions(models)
+            if s.recommended and not any(m.default for m in models if m.family == s.family)
+        ]  # fmt: skip
 
     def suggestions(self, models: list[ModelInfo]) -> list[Suggestion]:
         """catalog/models.json "suggestions", marked when a model from the same Hugging Face file / folder exists."""
@@ -338,6 +399,7 @@ class ModelStore:
         models = self.all()
         return ModelsOverview(
             families=list(FAMILIES.values()),
+            components=self.components_status(),
             models=models,
             suggestions=self.suggestions(models),
             adding=self.progress.snapshot(),
@@ -349,15 +411,23 @@ class ModelStore:
             self.progress.update(error="", log=[], item="", item_done=0, item_size=0)
 
     def require(self, family: str, model_id: str | None) -> ModelInfo:
-        """The model a job asked for (None = the built-in one of that family), usable now. Raises HTTPException."""
+        """The model a job asked for (None = the family's default), usable now. Raises HTTPException."""
+        title = FAMILIES[family].title
+        fc = next(x for x in self.components_status() if x.family == family)
+        missing = [c.path for c in fc.components if not c.present]
+        if missing:
+            raise HTTPException(503, f"{title}: shared components are missing ({', '.join(missing)}); download them "
+                                     "on the Models page")  # fmt: skip
         models = [m for m in self.all() if m.family == family]
         m = (
             next((x for x in models if x.id == model_id), None)
             if model_id
-            else next((x for x in models if x.builtin), None)
+            else next((x for x in models if x.default), None)
         )
+        if m is None and not model_id:
+            raise HTTPException(503, f"no {title} is installed yet: add one on the Models page")
         if m is None:
-            raise HTTPException(400, f"no {FAMILIES[family].title} with id {model_id!r} (Server > Models)")
+            raise HTTPException(400, f"no {title} with id {model_id!r} (Server > Models)")
         if not m.present:
             raise HTTPException(503, f"{m.title}: files are missing; download them on the Models page")
         if m.check is not None and m.check.state == "failed":
@@ -365,12 +435,19 @@ class ModelStore:
         return m
 
     def path(self, m: ModelInfo, role: str) -> str:
-        """Absolute path of a model file; a user diffusion model borrows the built-in text encoder and VAE."""
-        rel = m.files.get(role)
-        if rel is None:
-            base = next(x for x in self._builtins() if x.family == m.family)
-            rel = base.files[role]
+        """Absolute path of one of the files a model runs with: its own, else the family's shared component."""
+        rel = m.files.get(role) or self.components(m.family)[role]
         return os.path.join(paths.models, model_setup.safe_relpath(rel))
+
+    @contextmanager
+    def trellis_dir(self, m: ModelInfo) -> Iterator[str]:
+        """A temporary directory with <role>.gguf links to the model's flow models and the shared components, the
+        layout trellis-cli's --models expects."""
+        roles = {**self.components(m.family), **m.files}
+        with tempfile.TemporaryDirectory(prefix="trellis-models-") as d:
+            for role in roles:
+                os.symlink(self.path(m, role), os.path.join(d, f"{role}.gguf"))
+            yield d
 
     # ------------------------------------------------------------ adding
 
@@ -381,22 +458,25 @@ class ModelStore:
         os.makedirs(staging)
         return mid, staging
 
-    def _finish(self, mid: str, staging: str, info: ModelInfo) -> ModelInfo:
+    def _finish(self, mid: str, staging: str, info: ModelInfo, progress: Progress | None = None) -> ModelInfo:
         with open(os.path.join(staging, "model.json"), "w") as f:
-            f.write(info.model_dump_json(indent=2, exclude={"check", "present"}))
+            f.write(info.model_dump_json(indent=2, exclude={"check", "present", "default"}))
         os.replace(staging, os.path.join(self.user_dir, mid))
-        self.progress.log(f"added {info.title} as {mid}")
+        (progress or self.progress).log(f"added {info.title} as {mid}")
         return info
 
-    def add_from_url(self, req: AddModel, opener: Opener | None = None) -> ModelInfo:
-        """Download a model (blocking; the route runs it in a thread). Raises SetupError."""
+    def add_from_url(self, req: AddModel, opener: Opener | None = None, progress: Progress | None = None) -> ModelInfo:
+        """Download a model (blocking; the route runs it in a thread). Raises SetupError. progress: report into
+        another run's progress (the setup download), which then owns its running state and error."""
         fam = FAMILIES.get(req.family)
         if fam is None:
             raise SetupError(f"unknown model family {req.family}")
         op = opener or link_opener()
-        p = self.progress
-        p.update(running=True, error="", item=req.title, item_done=0, item_size=0, done_items=0, total_items=1,
-                 started=time.time(), finished=0.0)  # fmt: skip
+        own = progress is None
+        p = progress or self.progress
+        p.update(item=req.title, item_done=0, item_size=0, done_items=0, total_items=1)
+        if own:
+            p.update(running=True, error="", started=time.time(), finished=0.0)
         staging = ""
         try:
             hf = HF_RE.match(req.url.split("?")[0])
@@ -437,27 +517,27 @@ class ModelStore:
                 else:
                     hashes[base] = fetch_unpinned(req.url, out, cb, op)
                 check_weights(out)
-                files["diffusion" if fam.adds == "file" else base] = f"user/{mid}/{base}"
+                files["diffusion" if fam.adds == "file" else base.removesuffix(".gguf")] = f"user/{mid}/{base}"
                 p.update(done_items=n + 1)
-            if fam.adds == "folder":
-                files = {"dir": f"user/{mid}"}
             info = ModelInfo(
-                id=mid, family=fam.id, title=req.title, builtin=False, source=source,
+                id=mid, family=fam.id, title=req.title, source=source,
                 size=sum(os.path.getsize(os.path.join(staging, b)) for b in hashes), present=True,
                 added_at=time.time(), files=files,
             )  # fmt: skip
-            info = self._finish(mid, staging, info)
+            info = self._finish(mid, staging, info, p)
             with open(os.path.join(self.user_dir, mid, "sha256.json"), "w") as fh:
                 json.dump(hashes, fh, indent=2)
             return info
         except Exception as e:
-            p.update(error=str(e))
-            p.log(f"error: {e}")
+            if own:
+                p.update(error=str(e))
+                p.log(f"error: {e}")
             raise
         finally:
             if staging:
                 shutil.rmtree(staging, ignore_errors=True)
-            p.update(running=False, finished=time.time())
+            if own:
+                p.update(running=False, finished=time.time())
 
     @staticmethod
     def _plan(fam: Family, found: list[HfFile]) -> list[HfFile]:
@@ -466,10 +546,10 @@ class ModelStore:
                 raise SetupError("link one weights file (…/blob/<revision>/<file>.gguf), not a folder")
             return found
         names = {os.path.basename(f.path): f for f in found}
-        missing = [n for n in TRELLIS_FILES if n not in names]
+        missing = [f"{n}.gguf" for n in TRELLIS_FLOWS if f"{n}.gguf" not in names]
         if missing:
             raise SetupError(f"the folder lacks {', '.join(missing)}")
-        return [names[n] for n in (*TRELLIS_FILES, *TRELLIS_OPTIONAL) if n in names]
+        return [names[f"{n}.gguf"] for n in (*TRELLIS_FLOWS, *TRELLIS_OPTIONAL) if f"{n}.gguf" in names]
 
     def begin_upload(self, family: str, title: str, filename: str) -> "UploadSink":
         """Start storing an uploaded weights file; the caller writes chunks, then finish() or abort()."""
@@ -497,8 +577,6 @@ class ModelStore:
         m = self.get(model_id)
         if m is None:
             raise SetupError("unknown model")
-        if m.builtin:
-            raise SetupError("built-in models are managed by the server; remove a model you added")
         shutil.rmtree(os.path.join(self.user_dir, model_setup.safe_relpath(model_id)))
         with self.lock:
             checks = self._checks()
@@ -539,7 +617,7 @@ class UploadSink:
         self.file = None
         check_weights(self.path)
         info = ModelInfo(
-            id=self.mid, family=self.family, title=self.title, builtin=False, source=f"Upload {self.name}",
+            id=self.mid, family=self.family, title=self.title, source=f"Upload {self.name}",
             size=self.size, present=True, added_at=time.time(), files={"diffusion": f"user/{self.mid}/{self.name}"},
         )  # fmt: skip
         info = self.owner._finish(self.mid, self.staging, info)

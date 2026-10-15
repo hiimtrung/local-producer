@@ -1,6 +1,7 @@
-// Models: the built-in ones and those added from Hugging Face, another public link or an upload; each can be tested
-// with the loaded engine (a tiny real run), and the Image / 3D pages offer every model that is present. Below, the
-// pinned files of the built-in models: download what is missing, verify checksums.
+// Models: per family, the shared components (pinned files every model of the family runs with) and the main models
+// added from a suggestion, Hugging Face, another link or an upload; each can be tested with the loaded engine (a tiny
+// real run) and one is the default. The Image / 3D pages offer every model that is present. Below, the component
+// files: download what is missing, verify checksums.
 import { useRef, useState } from "react";
 import { api, isActive, type ModelInfo, type ModelsOverview, type SetupStatus } from "../../api/client";
 import { useJob } from "../../hooks/useJob";
@@ -59,12 +60,12 @@ export function ModelsPage() {
     <DocPage
       title="Models"
       nav={nav}
-      lede="The weights the server runs. Add other models from Hugging Face, a public link or an upload, then test them: the loaded engine makes a tiny real output, so you know the model runs on this machine before you use it."
+      lede="Each kind of model runs with shared components (text encoder, VAE, image encoder, decoders) plus a main model you choose. Add main models from the suggestions, Hugging Face, a link or an upload, then test them: the loaded engine makes a tiny real output, so you know the model runs on this machine before you use it."
       actions={
         <div className="row-actions">
           {!data.ready && !dl.running ? (
             <Button variant="prominent" onClick={() => void start(api.downloadModels, "start the download")}>
-              Download built-in models ({bytes(data.missing_bytes)})
+              {`${data.to_add.length ? "Download components and recommended models" : "Download components"} (${bytes(data.missing_bytes)})`}
             </Button>
           ) : null}
           <Button
@@ -79,8 +80,8 @@ export function ModelsPage() {
     >
       {data.engine.state !== "ready" ? (
         <p className="callout">
-          No engine package is loaded: {data.engine.problem}. Downloading the built-in models installs the one for this
-          machine first, or see <a href="#/engines">Engines</a>.
+          No engine package is loaded: {data.engine.problem}. The download installs the one for this machine first, or
+          see <a href="#/engines">Engines</a>.
         </p>
       ) : null}
       {dl.running ? (
@@ -92,6 +93,10 @@ export function ModelsPage() {
       {models.data.adding.running ? <AddingProgress adding={models.data.adding} /> : null}
       {models.data.families.map((f) => (
         <List key={f.id} header={f.title}>
+          <ComponentsRow parts={models.data?.components.find((c) => c.family === f.id)} />
+          {models.data?.models.some((m) => m.family === f.id) ? null : (
+            <ListItem title="No model yet" subtitle="Add one of the suggestions below, or your own with Add a model" />
+          )}
           {models.data?.models
             .filter((m) => m.family === f.id)
             .map((m) => (
@@ -100,6 +105,7 @@ export function ModelsPage() {
                 model={m}
                 engine={data.engine.state === "ready" ? `${data.engine.id} ${data.engine.version}` : null}
                 onTest={() => api.checkModel(m.id)}
+                onDefault={() => void start(() => api.defaultModel(m.id), "make it the default")}
                 onRemove={() => void start(() => api.removeModel(m.id), "remove the model")}
                 onError={(what, e) => toast("danger", `Can't ${what}`, e.message)}
               />
@@ -110,7 +116,7 @@ export function ModelsPage() {
               <ListItem
                 key={s.url}
                 title={s.title}
-                subtitle={`Suggested · ${s.note} · ${bytes(s.size)} download`}
+                subtitle={`${s.recommended ? "Recommended" : "Suggested"} · ${s.note} · ${bytes(s.size)} download`}
                 trailing={
                   <Button
                     size="sm"
@@ -137,7 +143,7 @@ export function ModelsPage() {
       ) : null}
       <details className="log-details">
         <summary className="footnote">
-          Built-in files: {missing.length ? `${missing.length} missing` : `all ${data.items.length} installed`}
+          Component files: {missing.length ? `${missing.length} missing` : `all ${data.items.length} installed`}
         </summary>
         <List>
           {data.items.map((i) => (
@@ -177,6 +183,30 @@ function AddingProgress({ adding }: { adding: ModelsOverview["adding"] }) {
   );
 }
 
+const ROLE_LABEL: Record<string, string> = {
+  text_encoder: "Qwen3-4B text encoder",
+  vae: "VAE",
+  dinov3: "DINOv3 image encoder",
+  ss_dec: "structure decoder",
+  shape_dec: "shape decoder",
+  tex_dec: "texture decoder",
+};
+
+function ComponentsRow({ parts }: { parts: ModelsOverview["components"][number] | undefined }) {
+  if (!parts) return null;
+  return (
+    <ListItem
+      title="Shared components"
+      subtitle={parts.components.map((c) => ROLE_LABEL[c.role] ?? c.role).join(", ")}
+      trailing={
+        <Badge tone={parts.ready ? "success" : "warning"} icon>
+          {parts.ready ? "Installed" : "Missing"}
+        </Badge>
+      }
+    />
+  );
+}
+
 function checkBadge(m: ModelInfo, engine: string | null): [Tone, string] {
   if (!m.present) return ["warning", "Files missing"];
   if (!m.check) return ["neutral", "Not tested"];
@@ -188,12 +218,14 @@ function ModelRow({
   model: m,
   engine,
   onTest,
+  onDefault,
   onRemove,
   onError,
 }: {
   model: ModelInfo;
   engine: string | null;
   onTest: () => Promise<{ id: string }>;
+  onDefault: () => void;
   onRemove: () => void;
   onError: (what: string, e: Error) => void;
 }) {
@@ -210,7 +242,7 @@ function ModelRow({
     : "";
   return (
     <ListItem
-      title={m.title}
+      title={m.default ? `${m.title} (default)` : m.title}
       subtitle={[m.source, bytes(m.size), result].filter(Boolean).join(" · ")}
       trailing={
         <div className="row-actions">
@@ -233,20 +265,23 @@ function ModelRow({
           >
             Test
           </Button>
-          {m.builtin ? null : (
-            <Button
-              size="sm"
-              variant="plain"
-              disabled={testing}
-              onClick={() => {
-                if (!confirm) return setConfirm(true);
-                setConfirm(false);
-                onRemove();
-              }}
-            >
-              {confirm ? "Confirm remove" : "Remove"}
+          {m.default ? null : (
+            <Button size="sm" variant="plain" disabled={!m.present} onClick={onDefault}>
+              Make default
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="plain"
+            disabled={testing}
+            onClick={() => {
+              if (!confirm) return setConfirm(true);
+              setConfirm(false);
+              onRemove();
+            }}
+          >
+            {confirm ? "Confirm remove" : "Remove"}
+          </Button>
         </div>
       }
     />

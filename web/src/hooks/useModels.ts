@@ -1,4 +1,4 @@
-// The models of one family the server can run (built in and added on the Models page), for a model picker.
+// The models of one family the server can run (added on the Models page), for a model picker.
 import { useEffect, useState } from "react";
 import { api, type ModelInfo } from "../api/client";
 
