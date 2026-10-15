@@ -11,10 +11,10 @@
     "check": "tsc --noEmit -p . && node build.mjs"
   },
   "dependencies": {
-    "@google/model-viewer": "4.0.0",
+    "@google/model-viewer": "4.4.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "three": "0.169.0"
+    "three": "0.183.2"
   },
   "devDependencies": {
     "@types/react": "18.3.31",
