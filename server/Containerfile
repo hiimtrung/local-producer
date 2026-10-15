@@ -36,9 +36,10 @@ RUN chmod 755 /opt/lp/server/entrypoint.sh
 # Platform settings (e.g. AMD_SERIALIZE_KERNEL=3 for ROCm) come with the engine package (catalog/engines.json).
 ENV PATH=/opt/venv/bin:$PATH U2NET_HOME=/models/rembg PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OMP_NUM_THREADS=8 \
     MODELS_DIR=/models ENGINES_DIR=/engines LIBRARY_DIR=/library DATA_DIR=/data
-# Non-root by default; scripts/run-server.sh runs it as the host user (--userns=keep-id --user uid:gid) so the
-# files it writes into the volumes and host directories belong to that user.
-USER app
+# Non-root by default: the "app" user, by number so the host can resolve it (hadolint DL3066).
+# scripts/run-server.sh runs it as the host user (--userns=keep-id --user uid:gid) so the files it writes into the
+# volumes and host directories belong to that user.
+USER 10001:10001
 EXPOSE 13305 8083
 WORKDIR /opt/lp/server
 ENTRYPOINT ["/opt/lp/server/entrypoint.sh"]
