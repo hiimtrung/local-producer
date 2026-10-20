@@ -257,6 +257,12 @@ def test_security_headers_everywhere(server_env):
         assert "unsafe-eval'" not in csp.replace("'wasm-unsafe-eval'", "")  # JavaScript eval stays blocked
 
 
+def test_ui_files_are_revalidated(server_env):
+    c, _ = server_env
+    for path in ("/", "/app.js"):
+        assert c.get(path).headers["cache-control"] == "no-cache"
+
+
 def test_oversized_body_is_refused(server_env):
     c, _ = server_env
     r = c.post("/v1/jobs", content=b"{}", headers={"Content-Length": str(48 * 2**20 + 1)})

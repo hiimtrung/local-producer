@@ -58,7 +58,7 @@ from .prompts import APOSE_EDIT, EDIT_BACKGROUND, FRAMING_TAIL, full_prompt, rea
 bl_info = {
     "name": "LocalProducer",
     "author": "hiimtrung",
-    "version": (0, 14, 2),
+    "version": (0, 15, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > LocalProducer",
     "description": "Generate a PBR-textured mesh from an image or a text prompt (FLUX.2 + TRELLIS.2 on the local "
@@ -238,9 +238,11 @@ def _redraw_sidebars():
 
 def _apply_speed(props):
     if props.speed == "quality":
-        props.image_steps, props.mesh_steps = 4, 8
+        props.image_steps, props.mesh_steps, props.resolution = 4, 8, "512"
     elif props.speed == "fast":
-        props.image_steps, props.mesh_steps = 3, 6
+        props.image_steps, props.mesh_steps, props.resolution = 3, 6, "512"
+    elif props.speed == "hard_surface":
+        props.image_steps, props.mesh_steps, props.resolution = 4, 8, "1024"
 
 
 def _prefs():
@@ -655,7 +657,13 @@ class LocalProducerProps(bpy.types.PropertyGroup):
                 "FLUX.2 3 steps (~10 s faster per image), TRELLIS.2 6 steps (~14 % faster mesh); "
                 "small changes in pose and detail (CHANGELOG 2026-10-14)",
             ),
-            ("custom", "Custom", "Set Image Steps and Mesh Steps by hand"),
+            (
+                "hard_surface",
+                "Hard Surface",
+                "Quality steps at resolution 1024 for vehicles and machines: thin panel lines and crisp edges, "
+                "~2.75x the mesh time (605 s vs 220 s for a fighter jet; CHANGELOG 2026-10-16)",
+            ),
+            ("custom", "Custom", "Set Image Steps, Mesh Steps and Resolution by hand"),
         ],
         default="quality",
         update=lambda self, ctx: _apply_speed(self),

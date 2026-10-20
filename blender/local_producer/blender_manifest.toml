@@ -4,7 +4,7 @@
 schema_version = "1.0.0"
 
 id = "local_producer"
-version = "0.14.2"
+version = "0.15.0"
 name = "LocalProducer"
 tagline = "Text or image to a textured 3D model on your local GPU server, and its Library"
 maintainer = "hiimtrung"
