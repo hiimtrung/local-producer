@@ -6,6 +6,72 @@ Machine: ThinkPad P14s Gen 4, Ryzen 7 PRO 7840U, Radeon 780M (gfx1103), Ubuntu 2
 
 ---
 
+## 2026-10-16 — Hard-surface detail: decimation is not the bottleneck
+
+- **Goal:** a fighter-jet prompt (FLUX.2 q8_0 converted, Object / Realistic / 3/4 view) gave a TRELLIS.2 mesh with
+  rounded edges, wavy wings and panel lines only as blurry colour; find which stage loses the detail.
+- **Baseline (server defaults):** res 512, `--steps 8`, f16 flows, seed 1234: 220 s, the raw mesh of 1,400,744 faces
+  is quadric-decimated to 150K (`decimate_qem_gpu(target=150000)`) -> 142,674 faces, atlas 1024, 8.5 MB GLB.
+- **A: no decimation + big atlas** (same matted input, seed, model; trellis-cli v0.8.1 run directly,
+  `--res 512 --decim 0 --atlas 4096`): 287.5 s, 1,400,744 faces, 81 MB GLB, GPU resets 0 -> 0.
+- **Seen (Blender EEVEE, two close-ups, n=1):** the two meshes cannot be told apart in shape: same soft edges, same
+  wavy wing surface, no extra panel lines. The 4096 atlas shows stair-step colour edges where the 1024 one is
+  blurry, so the colour detail is limited by the res-512 PBR voxel volume, not by the atlas.
+- **Conclusion:** at res 512 neither the decimation to 150K nor the atlas size is what loses the detail; the limit
+  is upstream (hypothesis: the res-512 geometry/PBR grid itself).
+- **B: res 1024** (through the server, same input, seed 1234, `--steps 8`, server defaults otherwise): 604.8 s,
+  PBR voxels 1,726,565, raw mesh 5,865,412 faces decimated to 300K -> 282,826 faces, atlas 2048, 22 MB GLB, GPU
+  resets 0 -> 0.
+- **Seen (same close-ups, n=1):** clearly more detail than res 512: thin panel lines, crisp vents and hatches,
+  legible markings on the nose, small antennas and fairings; edges sharper. Still there: some waviness on the wing
+  surface, and the canopy came out brown-tinted (it is dark in the input image).
+- **Conclusion:** for hard-surface objects the res-512 grid is the detail limit; res 1024 fixes most of it at ~2.75x
+  the time (605 s vs 220 s on this input). Res 1536 not tried on this input.
+- **Change:** a "Hard surface" preset (res 1024, 8 steps) next to Standard / Fast / Custom on the web UI's 3D model
+  page, and "Hard Surface" in the add-on's Speed (v0.15.0; Quality and Fast now also set res 512). Defaults unchanged.
+- **User test of Hard surface** (another FLUX jet image, res 1024, 8 steps): 1192 s, 285,998 faces; the user
+  judged the quality still limited. Seen (Blender, n=1): panel lines present but soft and partly doubled, the
+  texture washed out, a dark shard of geometry under the fuselage. Measured on the base colour vs the matted input
+  (object pixels / used texels): luminance std 51.5 -> 38.1 (-26 %), p5/p95 14/181 -> 16/139, mean RGB
+  111,122,132 (blue-grey) -> 92,92,89 (neutral grey). So TRELLIS.2 redraws the texture with less contrast and
+  colour than the image instead of copying its pixels (hypothesis for the soft lines: the texture flow
+  re-synthesises them from the latent).
+- **Projecting the input image onto the mesh** (`blender/experiments/project_view.py`, headless Blender 5.2, CPU
+  only, 49-55 s per mesh incl. a 2048 atlas bake): fit a camera to the input silhouette, give every texel the camera
+  sees (facing + ray-cast occlusion; TRELLIS meshes have inner shells) the image colour, fill hidden texels from
+  their mirror image across the fitted vertical symmetry plane, map the rest's colours towards the image. Inputs:
+  FLUX q8_0 images (Object / Realistic / 3/4), TRELLIS.2 f16 res 1024, 8 steps, seed 1234; jet (above), a red
+  sports car (1656 s, 292,220 faces) and a black/orange motorcycle (1989.5 s, 286,552 faces); GPU resets 0 -> 0.
+  - **Pose:** TRELLIS kept the jet in the input's view (best azimuth -2 deg, elevation 29) but turned both
+    vehicles to an axis (symmetry plane at 0 deg; camera azimuth 46 deg), so the search covers the full circle.
+    The car's silhouette is almost the same from front-left and rear-right (IoU 0.9212 rear vs 0.9141 front): the
+    first version projected the headlights onto the rear. Edge agreement of renders (0.387 vs 0.367) and grey /
+    rank correlation of renders (0.68 vs 0.53 at 8x8) also picked the rear: the lighting dominates. What worked
+    (n=1 car): the unlit TRELLIS base colour vs the input, averaged over an 8x8 / 16x16 grid of the object box,
+    log luminance + log(R/G) + log(B/G): rear 0.135 / 0.129, front 0.208 / 0.201 (luminance alone: ~0 for both,
+    the red paint and the grey glass have the same luminance). Jet 0.386 / 0.337, motorcycle 0.391 / 0.286.
+  - **Numbers:** seen texels jet 434,177 / car 234,954 / motorcycle 327,274, mirrored 209,817 / 122,141 / 256,238;
+    symmetry score (reflected surface samples landing on the surface, 96^3 grid, 1 voxel tolerance) 0.921 / 0.981
+    / 0.949 (0.647 with no tolerance). Luminance std input / TRELLIS / result: jet 51.5 / 41.0 / 50.6, car 49.2 /
+    18.2 / 34.9, motorcycle 49.6 / 39.5 / 47.6. A least-squares colour fit for the unseen rest dropped the jet to
+    31.5 (shrinks to the mean); per-channel mean/std gains reached 2.47 on the car's green and turned grey wheels
+    cyan; now one luminance gain (clamped 0.7-2) + per-channel offsets.
+  - **Seen (Blender EEVEE, n=1 each):** the camera-facing side is clearly sharper: jet canopy frames, panel lines,
+    markings; car headlights, grille, badge, glass with the interior; motorcycle tank graphics, engine fins, gold
+    side covers. Defects: where the mesh and the image do not line up the image colour lands on the wrong part
+    (the car's front wheel got red paint, a black smear in the wheel arch); the mirrored side of the car's rear arch
+    is smeared; the global colour mapping still tints the hidden wheels cyan; the image's lighting and reflections
+    become albedo (the car's paint keeps TRELLIS's metallic = 1). Geometry is unchanged.
+  - **Conclusion:** projection gives the detail TRELLIS's texture lacks on the visible side; it needs local
+    registration (thin and separate parts such as wheels) and per-material colour mapping before it is usable.
+- **Fix: a rebuilt web UI did not show up until a hard reload** (fixed file names, no `Cache-Control`, so
+  heuristic caching). The UI's files are now served with `Cache-Control: no-cache` (revalidated by ETag).
+- **Fix: blank image preview in the Library dialog** (reproduced in Edge 155 over BrowserSkill; all image requests
+  200). The dialog shows the thumbnail's already cached image, whose load event fired before `ImageView`'s
+  `useEffect([src])` reset the measured size to null; the image stays hidden until measured and load does not fire
+  again. The size is now stored with the src it was measured from (no reset effect) and also read from
+  `img.complete` in a ref callback. Checked after the fix: two image items preview correctly (fitted, 32 %).
+
 ## 2026-10-15 — Shared components, main models as options
 
 - **Goal (maintainer request):** "built-in" should mean only the shared parts a main model needs, not a main model:

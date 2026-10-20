@@ -59,7 +59,12 @@ async def guard(request: Request, call_next: Callable[[Request], Awaitable[Respo
     cap = MAX_MODEL_BYTES if (request.method, request.url.path) == ("PUT", "/v1/models/upload") else MAX_BODY_BYTES
     if length is not None and (not length.isdigit() or int(length) > cap):
         return _with_headers(JSONResponse({"detail": "request body too large"}, status_code=413))
-    return _with_headers(await call_next(request))
+    response = _with_headers(await call_next(request))
+    if not request.url.path.startswith("/v1/"):
+        # The UI's files keep fixed names (app.js, app.css): make browsers revalidate (ETag -> 304) so a rebuilt UI
+        # shows up on the next load instead of a heuristically cached old one.
+        response.headers.setdefault("Cache-Control", "no-cache")
+    return response
 
 
 def _with_headers(response: Response) -> Response:
