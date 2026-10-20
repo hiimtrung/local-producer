@@ -26,6 +26,21 @@ type Settings = Required<Omit<MeshParamsT, "image">>;
 type Resolution = NonNullable<Settings["resolution"]>;
 type Atlas = NonNullable<Settings["atlas"]>;
 
+type Preset = "standard" | "fast" | "hard" | "custom";
+/** Named resolution + steps pairs; any other pair shows as Custom (measured in CHANGELOG 2026-10-14 / 2026-10-16). */
+const PRESETS: (Option<Preset> & { resolution: Resolution; steps: number; hint: string })[] = [
+  { value: "standard", label: "Standard", resolution: 512, steps: 8, hint: "Res 512, 8 steps." },
+  { value: "fast", label: "Fast", resolution: 512, steps: 6, hint: "Res 512, 6 steps: ~14 % faster, almost the same." },
+  {
+    value: "hard",
+    label: "Hard surface",
+    resolution: 1024,
+    steps: 8,
+    hint: "Res 1024 for vehicles and machines: thin panel lines, crisp edges; ~2.75x the time (605 s vs 220 s on a jet).",
+  },
+];
+const CUSTOM = { value: "custom" as const, label: "Custom", hint: "Set the resolution and steps below." };
+const PRESET_OPTIONS: Option<Preset>[] = [...PRESETS, CUSTOM];
 const RESOLUTIONS: (Option<Resolution> & { time: string })[] = [
   { value: 512, label: "512", time: "~4.5 min" },
   { value: 1024, label: "1024", time: "~19 min, sharper" },
@@ -90,6 +105,12 @@ export function MeshPage({ query }: PageProps) {
   const running = isActive(job);
   const done = job?.state === "done" && job.outputs.includes("model.glb") ? job : null;
   const resolution = p.resolution ?? config.mesh_resolution;
+  const steps = p.steps ?? config.mesh_steps;
+  const preset = PRESETS.find((x) => x.resolution === resolution && x.steps === steps) ?? CUSTOM;
+  const choosePreset = (v: Preset) => {
+    const x = PRESETS.find((o) => o.value === v);
+    if (x) set({ resolution: x.resolution, steps: x.steps });
+  };
 
   const run = async () => {
     if (!source) return;
@@ -140,6 +161,13 @@ export function MeshPage({ query }: PageProps) {
       <PanelSection title="Quality">
         <ModelField models={models} value={p.model} onChange={(model) => set({ model })} />
         <ChoiceField
+          label="Preset"
+          options={PRESET_OPTIONS}
+          value={preset.value}
+          onChange={choosePreset}
+          hint={preset.hint}
+        />
+        <ChoiceField
           label="Resolution"
           options={RESOLUTIONS}
           value={resolution}
@@ -152,7 +180,7 @@ export function MeshPage({ query }: PageProps) {
           max={16}
           step={1}
           showValue
-          value={p.steps ?? config.mesh_steps}
+          value={steps}
           onChange={(steps) => set({ steps })}
         />
         <Hint>8 by default; 6 is ~14 % faster and looks almost the same.</Hint>

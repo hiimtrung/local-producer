@@ -39,7 +39,15 @@ export function ImageView({ url, alt }: ImageViewProps) {
   const { bottom: reserveBottom } = useStageInset();
   const src = useFileUrl(url);
   const box = useRef<HTMLDivElement>(null);
-  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  // The size belongs to the src it was measured from, so a new src is unmeasured without a reset effect: an effect
+  // runs after a cached image's load event and would wipe the size for good (the image then stays hidden).
+  const [measured, setMeasured] = useState<{ src: string; w: number; h: number } | null>(null);
+  const natural = measured && measured.src === src ? measured : null;
+  const measure = (img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth > 0 && src && measured?.src !== src) {
+      setMeasured({ src, w: img.naturalWidth, h: img.naturalHeight });
+    }
+  };
   const [viewport, setViewport] = useState({ w: 0, h: 0 });
   /** null = fitted, which follows the viewport size. */
   const [view, setView] = useState<View | null>(null);
@@ -49,7 +57,6 @@ export function ImageView({ url, alt }: ImageViewProps) {
 
   useEffect(() => {
     setView(null);
-    setNatural(null);
   }, [src]);
 
   useEffect(() => {
@@ -180,7 +187,8 @@ export function ImageView({ url, alt }: ImageViewProps) {
           src={src}
           alt=""
           draggable={false}
-          onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+          ref={measure}
+          onLoad={(e) => measure(e.currentTarget)}
           style={{
             visibility: natural ? "visible" : "hidden",
             width: natural?.w,
