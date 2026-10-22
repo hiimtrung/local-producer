@@ -1,5 +1,8 @@
 # Weekly update PRs for pinned dependencies. Server lock files must be recompiled with hashes after a bump
 # (see the header of server/requirements*.in); the GPU path then needs `make smoke` on real hardware before merging.
+# Every update PR targets main, the only long-lived branch (trunk-based).
+# The server's runtime packages (fastapi, ...) are pinned twice, in pyproject.toml (uv) and server/requirements.in (pip):
+# the two ecosystems open separate PRs for the same bump, which must be merged together.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -18,3 +21,11 @@ updates:
     directory: /web
     schedule:
       interval: weekly
+    groups:
+      # react-dom pins a peer dependency on the same react version: bumped alone, `npm ci` fails with ERESOLVE.
+      react:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
