@@ -45,6 +45,27 @@ Machine: ThinkPad P14s Gen 4, Ryzen 7 PRO 7840U, Radeon 780M (gfx1103), Ubuntu 2
   the Qwen3-VL-4B text encoder as a new shared component (+4.3 GB), and per-family default steps (16) and sampler.
   Before that, a wider comparison (several subjects and seeds, matting + TRELLIS.2 on the results) would show whether
   it is worth it. Weights and outputs: `~/.local-producer/experiments/flux3/` (not in git).
+- **Step sweep (same day, same configuration):** FLUX.3 at 16 / 12 / 8 / 6 / 4 / 3 / 2 steps and FLUX.2 at 4 steps,
+  on 2 subjects ("a cute cat", "a friendly retro robot", both with the add-on's character framing) x 2 seeds (7,
+  1234) = 32 images; then every image through the server's matting (`isnet-general-use` + `fill_holes`). 32 of 32
+  runs finished, GPU resets 0 before and after. Wall time per 1024^2 image, min-max over the 4 subject/seed pairs:
+
+  | | FLUX.2 4 | FLUX.3 16 | 12 | 8 | 6 | 4 | 3 | 2 |
+  |---|---|---|---|---|---|---|---|---|
+  | Wall (s) | 57-67 | 190-224 | 150-178 | 113-123 | 95-100 | 72-76 | 60-62 | 48-51 |
+
+  The spread within one setting (up to ~18 %, later runs slower) is larger than the step-to-step noise of the first
+  benchmark; its cause (heat?) is not measured.
+- **Look vs steps (visual, 4 images per setting):** 16, 12 and 8 steps are nearly indistinguishable on all four.
+  6 steps keeps the composition and colours with small detail changes. 4 steps keeps the composition but shifts
+  colours and markings (stripes appear on the cats, one robot's face changes). 3 steps changes the subject visibly and
+  adds noise; 2 steps is broken (smeared fur, wrong colours, noisy robot). **The minimum that matches the 16-step
+  image is 6 steps (~97 s, ~1.5x FLUX.2); 4 steps (~73 s, ~1.15x) is usable but drifts.**
+- **Matting:** clean on all 32: no body part cut away, the grey cat on the grey background included. Alpha
+  coverage (share of the 1024^2 frame kept) is stable across FLUX.3 steps 16-4 (cat 0.27-0.29, robot 0.23-0.26) and
+  drops a little only at 2-3 steps. FLUX.3 draws the subject larger in the frame than FLUX.2 (0.20-0.26).
+- **View:** FLUX.3 draws the subjects mostly facing the camera, at most a slight turn; FLUX.2 follows the requested
+  three-quarter view more closely on all four. Whether the frontal view gives worse TRELLIS.2 meshes is not measured.
 
 ---
 
