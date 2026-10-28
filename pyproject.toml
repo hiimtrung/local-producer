@@ -21,7 +21,7 @@ dev = [
     "pre-commit==4.6.2",
     "httpx==0.28.1",
     # same versions as server/requirements.txt, so the server is tested with what the image runs
-    "fastapi==0.143.0",
+    "fastapi==0.162.0",
     "uvicorn==0.54.0",
     "python-multipart==0.0.32",
     "pillow==12.3.0",
