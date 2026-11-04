@@ -29,3 +29,10 @@ updates:
           - react-dom
           - "@types/react"
           - "@types/react-dom"
+    ignore:
+      # `three` is only @google/model-viewer's peer dependency; it is not imported in web/src.
+      # model-viewer 4.4.0 (latest) declares peer three ^0.183.0, so any newer three fails `npm ci` with ERESOLVE.
+      # Remove this rule once model-viewer accepts a newer three, or let it bump both together.
+      - dependency-name: three
+        versions:
+          - ">=0.184.0"
