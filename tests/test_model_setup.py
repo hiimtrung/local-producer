@@ -240,3 +240,20 @@ def test_download_installs_files_and_archives_then_reports_ready(tmp_path, monke
     assert not snap.running and snap.error == "" and snap.done_items == 2
     assert model_setup.verify(m, log=lambda *_: None) == []
     json.loads(snap.model_dump_json())  # the server returns it as JSON
+
+
+def test_zip_symlinks_are_refused_unless_skipped(tmp_path):
+    import zipfile
+
+    from app.model_setup import _extract_zip
+
+    archive = tmp_path / "src.zip"
+    with zipfile.ZipFile(archive, "w") as z:
+        z.writestr("p/CMakeLists.txt", "project(x)")
+        link = zipfile.ZipInfo("p/.pi/SYSTEM.md")
+        link.external_attr = (0o120777) << 16
+        z.writestr(link, "gg/SYSTEM.md")
+    with pytest.raises(SetupError, match="leaves its directory"):
+        _extract_zip(str(archive), str(tmp_path / "a"), "p/")
+    _extract_zip(str(archive), str(tmp_path / "b"), "p/", skip_links=True)
+    assert (tmp_path / "b/CMakeLists.txt").exists() and not (tmp_path / "b/.pi/SYSTEM.md").is_symlink()

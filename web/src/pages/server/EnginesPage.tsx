@@ -13,7 +13,7 @@ import { ServerNav } from "./ServerNav";
 const STACKS: Record<string, string> = {
   rocm: "AMD ROCm",
   cuda: "NVIDIA CUDA",
-  mlx: "Apple MLX / Metal",
+  metal: "Apple Metal",
   cpu: "CPU only",
 };
 const STATE: Record<EngineStatus["state"], [Tone, string]> = {
@@ -102,7 +102,7 @@ export function EnginesPage() {
     <DocPage
       title="Engines"
       nav={nav}
-      lede="The GPU code for this machine comes as a package: its runtime libraries and the image and 3D generators. Versions install side by side into their own volume and load without restarting the server; the next job uses the loaded one."
+      lede="The GPU code for this machine comes as a package: its runtime libraries and the image and 3D generators. Versions install side by side into the engines storage and load without restarting the server; the next job uses the loaded one."
       actions={
         <div className="row-actions">
           <Button loading={checking} disabled={busy} onClick={() => void checkUpdates()}>

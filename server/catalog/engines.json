@@ -1,5 +1,5 @@
 {
-  "_comment": "Engine packages: everything that is specific to one platform (GPU runtime libraries and the CLI builds the pipelines run), installed as a unit under ENGINES_DIR/<id>/<version>/ and loaded by app/engines/. The server image itself holds no GPU code, so a package can be installed, switched or reloaded while the server runs. Every download is pinned by URL, size and SHA256 like catalog/models.json. A package's runners name the CLIs the pipelines ask for (sd-cli: stable-diffusion.cpp, trellis-cli: trellis.cpp) with their library directories. Bumping a version means a new package version (all items reviewed together) and a CHANGELOG.md entry.",
+  "_comment": "Engine packages: everything that is specific to one platform (GPU runtime libraries and the CLI builds the pipelines run), installed as a unit under ENGINES_DIR/<id>/<version>/ and loaded by app/engines/. The server image itself holds no GPU code, so a package can be installed, switched or reloaded while the server runs. Every download is pinned by URL, size and SHA256 like catalog/models.json. A package's runners name the CLIs the pipelines ask for (sd-cli: stable-diffusion.cpp, trellis-cli: trellis.cpp) with their library directories.  A package may also build a CLI from pinned sources (\"build\", app/engines/build.py) where upstream publishes no binary. Bumping a version means a new package version (all items reviewed together) and a CHANGELOG.md entry.",
   "version": 1,
   "_hosts": "A download (and every redirect it follows) must be https and its host must equal one of these domains or end with '.' + one of them (CDN hosts vary, e.g. us.aws.cdn.hf.co, release-assets.githubusercontent.com).",
   "allowed_domains": [
@@ -107,6 +107,101 @@
           "dest": "rocm"
         }
       ]
+    },
+    {
+      "id": "metal-arm64",
+      "version": "2026.11.3",
+      "title": "Apple silicon (Metal) for M1 and later",
+      "description": "stable-diffusion.cpp master-964 (FLUX.2) from its macOS arm64 release and trellis.cpp v0.8.1 (TRELLIS.2) built from source on this Mac (no upstream macOS release; ~5 min with CMake and the Xcode Command Line Tools), both on ggml's Metal backend. Runs in the native server (scripts/run-server.sh on macOS): containers cannot reach Metal.",
+      "platform": {
+        "os": "macos",
+        "arch": "arm64",
+        "accelerator": "metal",
+        "gpu_targets": []
+      },
+      "env": {},
+      "lib_dirs": [],
+      "runners": {
+        "sd-cli": {
+          "bin": "sdcpp/sd-cli",
+          "lib_dirs": [
+            "sdcpp"
+          ],
+          "self_test": [
+            "--version"
+          ]
+        },
+        "trellis-cli": {
+          "bin": "trellis/trellis-cli",
+          "lib_dirs": [],
+          "self_test": [
+            "--help"
+          ]
+        }
+      },
+      "items": [
+        {
+          "id": "stable-diffusion.cpp master-964 macOS arm64 build",
+          "kind": "archive",
+          "format": "zip",
+          "url": "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-964-1d0a58a/sd-master-1d0a58a-bin-Darwin-macOS-26.6.2-arm64.zip",
+          "size": 35213648,
+          "sha256": "45001839e925f98ecd18ef5251725f74cff874eeac4599f1136acba65b26911e",
+          "dest": "sdcpp",
+          "check": "sd-cli",
+          "upstream": {
+            "github": "leejet/stable-diffusion.cpp",
+            "tag": "master-964-1d0a58a"
+          }
+        },
+        {
+          "id": "trellis.cpp v0.8.1 source",
+          "kind": "archive",
+          "format": "zip",
+          "url": "https://github.com/pwilkin/trellis.cpp/archive/c0bed38c1578f7e36e3e50c8ff1e38fa0d47583f.zip",
+          "size": 91387827,
+          "sha256": "aec0ebf3915127389ef1883939bc20f6d388d88f260ff3b0a6e41547f7f129d6",
+          "strip": "trellis.cpp-c0bed38c1578f7e36e3e50c8ff1e38fa0d47583f/",
+          "skip_links": true,
+          "dest": "src/trellis",
+          "check": "CMakeLists.txt",
+          "upstream": {
+            "github": "pwilkin/trellis.cpp",
+            "tag": "v0.8.1"
+          }
+        },
+        {
+          "id": "ggml for trellis.cpp v0.8.1 source (submodule f8697b3)",
+          "kind": "archive",
+          "format": "zip",
+          "url": "https://github.com/pwilkin/ggml/archive/f8697b33795db2ee6a2569b40853ca6aaa69f9b9.zip",
+          "size": 5204693,
+          "sha256": "1353b6dcadb65c5b84ff48a4eaf835fc68f0f025bd7596bb26e5c5a601482a78",
+          "strip": "ggml-f8697b33795db2ee6a2569b40853ca6aaa69f9b9/",
+          "skip_links": true,
+          "dest": "src/trellis/thirdparty/ggml",
+          "check": "CMakeLists.txt"
+        }
+      ],
+      "build": [
+        {
+          "id": "trellis.cpp v0.8.1 Metal",
+          "source": "src/trellis",
+          "cmake_args": [
+            "-DGGML_METAL=ON",
+            "-DGGML_METAL_EMBED_LIBRARY=ON",
+            "-DGGML_NATIVE=ON",
+            "-DBUILD_SHARED_LIBS=OFF",
+            "-DTRELLIS_WEBP=OFF"
+          ],
+          "targets": [
+            "trellis-cli"
+          ],
+          "outputs": {
+            "trellis-cli": "trellis/trellis-cli"
+          }
+        }
+      ]
     }
   ],
   "planned": [
@@ -114,11 +209,6 @@
       "accelerator": "cuda",
       "title": "NVIDIA CUDA",
       "description": "Linux x86_64 with an NVIDIA GPU (container with the NVIDIA CDI devices)."
-    },
-    {
-      "accelerator": "mlx",
-      "title": "Apple silicon (MLX / Metal)",
-      "description": "macOS on M-series chips; the server runs natively, containers cannot reach Metal."
     }
   ]
 }

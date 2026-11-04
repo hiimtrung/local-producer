@@ -5,6 +5,9 @@ ENGINES_DIR/<id>/<version>/package.json  the catalog entry it was installed from
 ENGINES_DIR/active.json                  {"id", "version"}: what to load at startup
 ENGINES_DIR/.cache/                      downloads in progress (resumable), deleted after the install
 
+Packages whose CLIs upstream does not publish for this platform build them from pinned sources after the downloads
+(build.py; e.g. trellis.cpp on macOS).
+
 Loading a package checks, in order: it was built for this machine (host.py), the stack's preflight passes
 (backends.py, e.g. cwsr_enable=0 for ROCm), and each runner's self-test exits 0 (proves its libraries resolve,
 without touching the GPU). Only then does it become the active package. Each job resolves its runner when it
@@ -37,11 +40,23 @@ from ..gpu import JobFailed, gpu_lock, log
 from ..model_setup import Opener, Progress, SetupError
 from ..schemas import ApiModel
 from ..settings import paths
-from . import backends
+from . import backends, build
 from .catalog import Catalog, PackageSpec, Planned, load_catalog, version_key
 from .host import HostInfo, detect
 
 SELF_TEST_TIMEOUT = 60
+# macOS: the server runs natively, without the container's isolation, so every engine CLI starts under the system
+# sandbox with networking denied (a crafted weights file that hit a parser bug could not reach the network). Metal,
+# the file system and the CLI's own threads are unaffected.
+SANDBOX_EXEC = "/usr/bin/sandbox-exec"
+SANDBOX_PROFILE = "(version 1)(allow default)(deny network*)"
+
+
+def _prefix(host: HostInfo) -> tuple[str, ...]:
+    """What every engine CLI is started under on this machine."""
+    if host.os == "macos" and os.access(SANDBOX_EXEC, os.X_OK):
+        return (SANDBOX_EXEC, "-p", SANDBOX_PROFILE)
+    return ()
 
 
 class EngineUnavailable(JobFailed):
@@ -59,6 +74,12 @@ class Runner:
     bin: str
     env: dict[str, str]
     package: str
+    prefix: tuple[str, ...] = ()
+
+    @property
+    def argv(self) -> list[str]:
+        """The command that starts the CLI: the sandbox wrapper, if any, then the CLI itself."""
+        return [*self.prefix, self.bin]
 
 
 class EngineStatus(ApiModel):
@@ -355,7 +376,10 @@ class Engines:
             raise EngineUnavailable(f"the loaded engine {a.spec.id} {a.spec.version} has no {name}")
         lib_dirs = [os.path.join(a.root, d) for d in (*spec.lib_dirs, *a.spec.lib_dirs)]
         env = dict(os.environ, **a.spec.env, LD_LIBRARY_PATH=":".join(lib_dirs))
-        return Runner(bin=os.path.join(a.root, spec.bin), env=env, package=f"{a.spec.id} {a.spec.version}")
+        return Runner(
+            bin=os.path.join(a.root, spec.bin), env=env, package=f"{a.spec.id} {a.spec.version}",
+            prefix=_prefix(self.host()),
+        )  # fmt: skip
 
     # ------------------------------------------------------------ load / reload
 
@@ -376,8 +400,8 @@ class Engines:
             env = dict(os.environ, **spec.env, LD_LIBRARY_PATH=":".join(lib_dirs))
             try:
                 p = subprocess.run(
-                    [exe, *r.self_test], env=env, capture_output=True, text=True, errors="replace",
-                    timeout=SELF_TEST_TIMEOUT, cwd=tempfile.gettempdir(),
+                    [*_prefix(self.host()), exe, *r.self_test], env=env, capture_output=True, text=True,
+                    errors="replace", timeout=SELF_TEST_TIMEOUT, cwd=tempfile.gettempdir(),
                 )  # fmt: skip
             except (OSError, subprocess.TimeoutExpired) as e:
                 return f"{name} self-test failed: {e}"
@@ -462,6 +486,8 @@ class Engines:
         mismatch = spec.platform.mismatch(self.host())
         if mismatch:
             raise SetupError(f"{spec.title} does not fit this machine: {mismatch}")
+        if spec.build and (lacking := build.missing_tools()):
+            raise SetupError(f"{spec.title}: {lacking}")
         dest = self._dir(spec.id, spec.version)
         if self._read_installed(spec.id, spec.version):
             return self.load(spec.id, spec.version)
@@ -491,6 +517,9 @@ class Engines:
                 model_setup.extract_archive(it, local, os.path.join(staging, model_setup.safe_relpath(it["dest"])))
                 os.unlink(local)
                 p.update(done_items=n + 1)
+            if spec.build:
+                p.update(item="build from source", item_done=0, item_size=0)
+                build.build_package(spec, staging, p.log)
             for r in spec.runners.values():
                 exe = os.path.join(staging, r.bin)
                 if not os.path.isfile(exe):

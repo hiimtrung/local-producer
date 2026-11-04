@@ -7,7 +7,7 @@ import tarfile
 import zipfile
 
 import pytest
-from conftest import FAKE_CLI, install_fake_engine
+from conftest import FAKE_CLI, install_fake_engine, wait_job
 from test_model_setup import FakeOpener, sha
 
 from app.engines import registry
@@ -27,10 +27,10 @@ def test_the_shipped_catalog_is_valid_and_pinned():
     for p in cat.packages:
         for it in p.items:
             assert it["url"].startswith("https://") and "/latest/" not in it["url"]
-        dests = {it["dest"] for it in p.items}
-        for r in p.runners.values():  # every runner comes from one of the package's own downloads
+        dests = {it["dest"] for it in p.items} | {dst.split("/")[0] for b in p.build for dst in b.outputs.values()}
+        for r in p.runners.values():  # every runner comes from the package's own downloads or builds
             assert r.bin.split("/")[0] in dests
-    assert {p.accelerator for p in cat.planned} == {"cuda", "mlx"}
+    assert {p.accelerator for p in cat.planned} == {"cuda"}
 
 
 def _catalog(**package_changes):
@@ -54,7 +54,70 @@ def test_catalog_rejects_unsafe_packages(changes):
         Catalog.model_validate(_catalog(**changes))
 
 
+def test_the_metal_package_builds_trellis_from_pinned_sources():
+    p = load_catalog().find("metal-arm64")
+    assert (p.platform.os, p.platform.arch, p.platform.accelerator) == ("macos", "arm64", "metal")
+    (b,) = p.build
+    assert b.outputs == {"trellis-cli": "trellis/trellis-cli"} and "-DTRELLIS_WEBP=OFF" in b.cmake_args
+    sources = {it["dest"] for it in p.items if it.get("skip_links")}
+    assert sources == {"src/trellis", "src/trellis/thirdparty/ggml"}
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        {"cmake_args": ["-DCMAKE_TOOLCHAIN_FILE=/tmp/x.cmake"]},
+        {"cmake_args": ["-DFETCHCONTENT_SOURCE_DIR_LIBWEBP=/tmp"]},
+        {"cmake_args": ["-DX=$(touch /tmp/p)"]},
+        {"cmake_args": ["--install"]},
+        {"targets": ["all; rm -rf ~"]},
+        {"outputs": {"trellis-cli": "../../bin/x"}},
+        {"outputs": {"trellis-cli": "src/trellis/x"}},  # inside the sources, which are deleted
+        {"source": "elsewhere"},  # not one of the downloads
+    ],
+)
+def test_catalog_rejects_unsafe_builds(build):
+    raw = json.loads(json.dumps(load_catalog().model_dump()))
+    pkg = next(p for p in raw["packages"] if p["build"])
+    pkg["build"][0].update(build)
+    with pytest.raises((SetupError, ValueError)):
+        Catalog.model_validate(raw)
+
+
 # ---------------------------------------------------------------- host
+
+
+def test_macos_on_apple_silicon_is_metal(monkeypatch):
+    from app.engines import host
+
+    monkeypatch.setattr(host.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(host.platform, "machine", lambda: "arm64")
+    monkeypatch.setattr(host, "apple_chip", lambda: "Apple M4")
+    info = host.detect()
+    assert (info.os, info.accelerator, info.gpu) == ("macos", "metal", "Apple M4")
+    assert load_catalog().find("metal-arm64").platform.mismatch(info) == ""
+    assert "needs rocm" in load_catalog().find("rocm-gfx1103").platform.mismatch(
+        info.model_copy(update={"os": "linux", "arch": "x86_64"})
+    )
+    monkeypatch.setattr(host.platform, "machine", lambda: "x86_64")
+    assert host.detect().accelerator == "cpu"
+
+
+def test_metal_preflight_and_memory_probe(monkeypatch, tmp_path):
+    from app.engines import backends
+
+    monkeypatch.setattr(backends.platform, "system", lambda: "Linux")
+    assert "Apple silicon" in backends.preflight("metal")
+    monkeypatch.setattr(backends.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(backends.platform, "machine", lambda: "arm64")
+    assert backends.preflight("metal") == ""
+    fake = tmp_path / "ioreg"
+    fake.write_text(
+        '#!/bin/sh\necho \'"PerformanceStatistics" = {"Alloc system memory"=99,"In use system memory"=1234}\'\n'
+    )
+    fake.chmod(0o755)
+    assert backends.apple_gpu_memory(str(fake)) == 1234
+    assert backends.apple_gpu_memory(str(tmp_path / "missing")) is None
 
 
 @pytest.mark.parametrize(("version", "name"), [(110003, "gfx1103"), (90010, "gfx90a"), (110501, "gfx1151")])
@@ -178,7 +241,7 @@ def test_catalog_versions_and_update_check(eng, tmp_path, monkeypatch):
     )
     assert not by_repo["pwilkin/trellis.cpp"].newer
     overview = eng.overview()
-    assert [(p.version, p.latest, p.loaded) for p in overview.packages] == [
+    assert [(p.version, p.latest, p.loaded) for p in overview.packages if p.id == "rocm-gfx1103"] == [
         ("2026.11.01", True, False),
         ("2026.10.15", False, True),
     ]
@@ -226,6 +289,61 @@ def test_install_downloads_verifies_unpacks_and_loads(eng, tmp_path, monkeypatch
     assert not snap.running and snap.done_items == 3 and snap.error == ""
 
 
+def test_runners_start_in_the_sandbox_on_macos(eng, tmp_path, monkeypatch):
+    install_fake_engine(tmp_path / "engines")
+    eng.reload()
+    assert eng.runner("sd-cli").argv == [eng.runner("sd-cli").bin]  # Linux: the container isolates
+    mac = registry.HostInfo(os="macos", arch="arm64", accelerator="metal", gpu="Apple M4", gpu_targets=[])
+    prefix = registry._prefix(mac)
+    if os.access(registry.SANDBOX_EXEC, os.X_OK):
+        assert prefix[0] == registry.SANDBOX_EXEC and "(deny network*)" in prefix[2]
+    else:
+        assert prefix == ()
+
+
+def test_install_builds_from_source_and_deletes_the_sources(eng, tmp_path, monkeypatch):
+    from app.engines import build
+
+    src = _archive("zip", "proj-1/CMakeLists.txt", b"project(x)")
+    sd = _archive("zip", "build/bin/sd-cli", FAKE_CLI.encode())
+    files = {"https://github.com/o/sd/sd.zip": sd, "https://github.com/o/tr/archive/1.zip": src}
+    items = [
+        {"id": "sd", "kind": "archive", "format": "zip", "strip": "build/bin/", "check": "sd-cli", "dest": "sdcpp"},
+        {"id": "tr", "kind": "archive", "format": "zip", "strip": "proj-1/", "skip_links": True, "dest": "src/tr"},
+    ]
+    for it, (url, data) in zip(items, files.items(), strict=True):
+        it.update(url=url, size=len(data), sha256=sha(data))
+    steps = [
+        {"id": "tr", "source": "src/tr", "targets": ["trellis-cli"], "outputs": {"trellis-cli": "trellis/trellis-cli"}}
+    ]
+    cat = Catalog.model_validate(_catalog(items=items, build=steps))
+    monkeypatch.setattr(eng, "catalog", lambda: cat)
+    commands = []
+
+    def fake_run(cmd, log_path, deadline):
+        commands.append(cmd)
+        if "--build" in cmd:  # the "compiler": writes the target into the build directory
+            out = cmd[cmd.index("--build") + 1]
+            with open(os.path.join(out, "trellis-cli"), "w") as f:
+                f.write(FAKE_CLI)
+        else:
+            os.makedirs(cmd[cmd.index("-B") + 1], exist_ok=True)
+        return []
+
+    monkeypatch.setattr(build, "missing_tools", lambda: "")
+    monkeypatch.setattr(build, "_run", fake_run)
+    st = eng.install("rocm-gfx1103", opener=FakeOpener(files))
+    assert st.state == "ready", st.problem
+    root = tmp_path / "engines/rocm-gfx1103" / cat.packages[0].version
+    assert os.access(root / "trellis/trellis-cli", os.X_OK) and not (root / "src/tr").exists()
+    assert commands[0][:2] == ["cmake", "-S"] and "-DCMAKE_BUILD_TYPE=Release" in commands[0]
+    assert commands[1][:2] == ["cmake", "--build"] and "trellis-cli" in commands[1]
+    monkeypatch.setattr(build, "missing_tools", lambda: "building this package needs CMake")
+    eng.remove("rocm-gfx1103", cat.packages[0].version)
+    with pytest.raises(SetupError, match="needs CMake"):
+        eng.install("rocm-gfx1103", opener=FakeOpener(files))
+
+
 def test_install_refuses_a_package_for_another_machine(eng, monkeypatch):
     monkeypatch.setattr(eng, "host", lambda: ROCM.model_copy(update={"gpu_targets": ["gfx1100"]}))
     with pytest.raises(SetupError, match="does not fit"):
@@ -257,4 +375,6 @@ def test_engines_api_and_jobs_without_an_engine(server_env, tmp_path):
     s = c.get("/v1/setup").json()
     assert not s["ready"] and s["models_ready"] and s["engine"]["state"] == "blocked"
     assert c.post("/v1/engines/reload").json()["state"] == "ready"
-    assert c.post("/v1/jobs", json={"kind": "image.generate", "params": {"prompt": "a cat"}}).status_code == 202
+    r = c.post("/v1/jobs", json={"kind": "image.generate", "params": {"prompt": "a cat"}})
+    assert r.status_code == 202
+    wait_job(c, r.json()["id"])  # finish before the fixture restores the paths

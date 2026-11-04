@@ -5,7 +5,7 @@
 # web UI's Server > Engines / Models pages, the add-on's "Download Models", or `make setup`). Storage: scripts/lp-env.sh.
 # ROCm on gfx1103 needs the host kernel parameter amdgpu cwsr_enable=0 (README.md); otherwise the engine is not loaded.
 # Ports are published on 127.0.0.1 only: the server has no user accounts (optional SERVER_TOKEN, see server/app/security.py).
-# The image is built on the first start; rebuild with BUILD=1. Stop: podman stop local-producer-gpu.
+# On macOS this runs scripts/run-native.sh instead (no container). The image is built on the first start; rebuild with BUILD=1. Stop: podman stop local-producer-gpu.
 # Logs: $STATE_DIR/server.log (jobs), $STATE_DIR/container.log (startup, matting). Extra app.main options via SERVER_ARGS.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -13,9 +13,8 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 source "$root/scripts/lp-env.sh"
 image=${IMAGE:-localhost/local-producer-gpu}
 name=${NAME:-local-producer-gpu}
-if [[ "$(uname -s)" == Darwin ]]; then
-    echo "macOS: containers cannot reach Metal; the server will run natively with the MLX engine (coming soon)" >&2
-    exit 1
+if [[ -n "$LP_NATIVE" ]]; then  # macOS: containers cannot reach Metal, so the server runs natively
+    exec "$root/scripts/run-native.sh" start
 fi
 if [[ -n "${BUILD:-}" ]] || ! podman image exists "$image"; then
     podman build -t "$image" -f "$root/server/Containerfile" "$root"

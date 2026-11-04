@@ -6,10 +6,14 @@ NAME ?= local-producer-gpu
 .PHONY: help dev lint typecheck api-types web-install web-build web-tokens web-dev format test check addon server-build server-up server-down setup engines engines-status models models-status models-verify smoke
 
 # A one-off container on the server image with the volumes, host directories and GPU devices (to detect the GPU)
-# of the server (scripts/lp-env.sh).
+# of the server (scripts/lp-env.sh). macOS: the native server's Python with the same environment (scripts/run-native.sh).
+ifeq ($(shell uname -s),Darwin)
+RUN_TOOL = scripts/run-native.sh python
+else
 RUN_TOOL = source scripts/lp-env.sh && lp_volumes && lp_mounts && lp_gpu && podman run --rm --userns=keep-id \
 	--user "$$(id -u):$$(id -g)" --cap-drop=all --security-opt no-new-privileges "$${LP_GPU[@]}" \
 	--security-opt label=disable "$${LP_MOUNTS[@]}" --entrypoint python $(IMAGE)
+endif
 
 help:  ## list the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
@@ -58,14 +62,22 @@ check: lint typecheck test web-build  ## everything CI checks
 addon:  ## build dist/local_producer.zip
 	blender/build_addon.sh
 
-server-build:  ## build the GPU server image
+server-build:  ## build the GPU server image (macOS: set up the native server's Python and web UI)
+ifeq ($(shell uname -s),Darwin)
+	scripts/run-native.sh setup
+else
 	podman build -t $(IMAGE) -f server/Containerfile .
+endif
 
-server-up:  ## start the server: web UI + API on http://127.0.0.1:13305, matting on 127.0.0.1:8083
+server-up:  ## start the server: web UI + API on http://127.0.0.1:13305, matting on 127.0.0.1:8083 (macOS: native)
 	scripts/run-server.sh
 
 server-down:  ## stop the server
+ifeq ($(shell uname -s),Darwin)
+	scripts/run-native.sh stop
+else
 	podman stop $(NAME)
+endif
 
 setup: engines models  ## install the engine package for this machine, then the models
 

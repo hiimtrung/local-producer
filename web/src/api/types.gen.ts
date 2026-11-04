@@ -203,7 +203,7 @@ export interface Health {
 export interface HostInfo {
   os: string;
   arch: string;
-  accelerator: "rocm" | "cuda" | "mlx" | "cpu";
+  accelerator: "rocm" | "cuda" | "metal" | "cpu";
   gpu: string;
   gpu_targets: string[];
 }
@@ -427,7 +427,7 @@ export interface PipelineInfo {
 }
 
 export interface Planned {
-  accelerator: "rocm" | "cuda" | "mlx" | "cpu";
+  accelerator: "rocm" | "cuda" | "metal" | "cpu";
   title: string;
   description: string;
 }
