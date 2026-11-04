@@ -2,9 +2,58 @@
 
 A log of experiments, measured numbers and decisions. The source code, images, models and benchmark data have been deleted (see "Cleaned up" at the end), so **the numbers here are the only record**. How to rebuild is under "Verified configuration".
 
-Machine: ThinkPad P14s Gen 4, Ryzen 7 PRO 7840U, Radeon 780M (gfx1103), Ubuntu 26.04, kernel 7.0.0-38, rootless Podman 5.7, Mesa 26.0.8.
+Machine (unless an entry says otherwise): ThinkPad P14s Gen 4, Ryzen 7 PRO 7840U, Radeon 780M (gfx1103), Ubuntu 26.04, kernel 7.0.0-38, rootless Podman 5.7, Mesa 26.0.8.
 
 ---
+
+## 2026-11-03 — macOS (Apple silicon): native server and a Metal engine package
+
+- **Goal (maintainer request):** run the server on an Apple M4 Mac (4P+6E CPU cores, 10-core GPU, 16 GiB unified
+  memory, macOS 27.2) and tune it for that machine.
+- **Native server:** containers cannot reach Metal, so on macOS `make server-up` runs `scripts/run-native.sh`: the
+  API and the matting server as host processes under one supervisor (both stop when either exits), bound to 127.0.0.1;
+  models and engines in `~/.local-producer/{models,engines}`; Python 3.12 from `server/requirements-macos.txt` (the
+  image's versions, macOS arm64 hashes) in `~/.local-producer/venv`. The engine CLIs run under `sandbox-exec` with
+  networking denied (checked with curl inside the profile: name resolution fails; file writes work). Host detection
+  reports `macos arm64 metal (Apple M4)`; GPU memory comes from the AGX driver's "In use system memory" (`ioreg`,
+  ~0.3 GB at idle on the desktop). The accelerator name changed from `mlx` to `metal`: both CLIs use ggml's Metal
+  backend, not MLX.
+- **Engine package `metal-arm64` 2026.11.3:** sd.cpp `master-964-1d0a58a` macOS arm64 release (the ROCm package's
+  version, so the FLUX.2 flags stay the same; universal binary, dylib via `@executable_path`). trellis.cpp publishes no
+  macOS build, so the package pins the GitHub source archives of v0.8.1 (`c0bed38`) and its ggml submodule (`f8697b3`)
+  and builds `trellis-cli` on install (new: package `build` steps, `server/app/engines/build.py`; Metal shaders
+  embedded, `GGML_NATIVE`, static, WebP off since the server passes `--webp off`). The ggml archive holds an internal
+  symlink (`.pi/SYSTEM.md -> gg/SYSTEM.md`) that the zip rule rejects; source items set `skip_links` instead of
+  loosening the rule. Upstream reports res 512 in 9:21 at 5.6 GB peak RSS on an M5 24 GB (trellis.cpp README, not
+  measured here).
+- **Measured on the M4 (cat sample, `cat_raw.png`, isnet-general-use + fill_holes, matting server over HTTP):**
+  1.44-1.55 s per image after a 2.4 s first call (n=4 after warm-up), with `OMP_NUM_THREADS=4` (= performance
+  cores); with 10 threads 1.51-1.75 s (n=4). The difference is small but 4 is not worse, so the native server sets
+  one thread per performance core. First start downloads rembg's model (179 MB) before the matting server answers.
+- **Install (`make engines`):** 11 min 10 s wall, almost all of it downloading (GitHub at ~1.4 MB/s here); the
+  `trellis-cli` CMake build itself took 11 s (configure + compile, 10 jobs; a first manual build of the same sources
+  took 16.8 s). Self-tests of both CLIs pass under the sandbox. `make models` then converted the Qwen3-4B text encoder
+  to q8_0 with the Metal `sd-cli`; no warning, so the result matches the pinned reference hash made on Linux/HIP.
+  Fixed on the way: the `make models` CLI never loaded an engine, so the conversion always failed outside the server.
+- **FLUX.2-klein-4B Q8_0 (leejet), 1024^2, 4 steps, seed 7, server flags, `sd-cli` alone:** 125.4 / 120.7 s (n=2):
+  model load ~16 s, prompt 6.7 s, sampling ~80 s (~20 s per step), VAE decode 38 s (tiling 256). Peak GPU "in use"
+  8.64 GiB, peak RSS 7.5-7.8 GiB: fits in 16 GiB. The Radeon 780M takes 63 s.
+- **FLUX.2 options tried (n=1 each, same seed):** VAE tile 512: 113.8 s (decode 28.6 s), tile 1024 (= untiled at
+  1024^2): 101.4 s (decode 15.4 s, peak 10.66 GiB), but the image washes out with the tile size (RGB std 45 -> 39 ->
+  34, visible), the same effect seen on HIP, so tile 256 stays. `--mmap`: bit-identical image, load 16 s -> 0.6 s,
+  but 119.4 s in all (the reads move into page faults) and peak GPU 9.54 GiB: within the noise, not adopted.
+  `--flash-attn on` for every module: 125.2 s, no gain. **The server's FLUX.2 flags stay unchanged on Metal.**
+- **End to end (`make smoke`: A-pose edit 3 steps -> matting -> TRELLIS.2 q8 res 512, 6 steps, n=1):** edit 184.6 s,
+  matte 3.0 s, mesh 315.4 s (8.2 MiB GLB); peak GPU in use over the whole run 9.35 GiB; each job's memory freed when its
+  process exited (0.01 GiB after). The 780M: ~212-225 s for the same mesh.
+- **TRELLIS.2 q8, res 512, 6 steps, seed 1234, the smoke job's matted cat, `trellis-cli` alone:** 300 s; flows
+  102.9 s (sparse structure, 11 forwards) + 68.1 s (shape) + 41.3 s (texture), the rest DINOv3, decoders and the
+  CPU post-process (decimation and deformable conv run their CPU fallbacks on Metal). Peak GPU in use 2.1 GiB, peak
+  RSS 3.9 GiB, so res 1024 should also fit in memory (not run yet). `TRELLIS_FA_FAST=1` (f16 instead of bf16 K/V):
+  304 s, no gain (n=1 each). **Defaults stay unchanged.**
+- **Conclusion:** the M4 runs the whole pipeline in 16 GiB at roughly 2x the 780M's time for FLUX.2 and ~1.4x for
+  TRELLIS.2 at res 512; none of the tried switches beat the defaults. 135 unit tests, mypy --strict, tsc, pre-commit
+  hooks pass.
 
 ## 2026-10-15 — Shared components, main models as options
 

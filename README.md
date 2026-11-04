@@ -34,8 +34,14 @@ res 512 in ~4.5 min (res 1024 ~19 min); a whole character in ~8 min (Fast preset
 ## Requirements
 
 - Linux, rootless Podman, ~30 GB free disk, and a GPU with an engine package (`server/catalog/engines.json`). Today:
-  AMD gfx1103 with ROCm (tested: Radeon 780M). NVIDIA CUDA (Linux, container) and Apple silicon with MLX (macOS,
-  native, since containers cannot reach Metal) are planned; the server core is the same for all of them.
+  AMD gfx1103 with ROCm (tested: Radeon 780M), and Apple silicon with Metal (see macOS below). NVIDIA CUDA (Linux,
+  container) is planned; the server core is the same for all of them.
+- **macOS (Apple silicon, M1 or later):** the server runs natively, not in a container (containers cannot reach Metal):
+  `make server-up` runs `scripts/run-native.sh`, which sets up its own Python 3.12 environment with
+  [uv](https://docs.astral.sh/uv/) from the hashed `server/requirements-macos.txt` and builds the web UI (Node.js 24).
+  The Metal engine package builds `trellis-cli` from pinned sources on install, so it also needs CMake
+  (`brew install cmake`) and the Xcode Command Line Tools (`xcode-select --install`). The engine CLIs run under a
+  network-denying sandbox (`sandbox-exec`). `make server-down` stops it.
 - **ROCm on gfx1103: kernel parameter, once, as root, then reboot** (without it HIP jobs reset the GPU intermittently
   and the server does not load the engine; CHANGELOG 2026-10-14):
   `echo 'options amdgpu cwsr_enable=0' | sudo tee /etc/modprobe.d/amdgpu-cwsr.conf` — check with

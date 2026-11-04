@@ -8,7 +8,8 @@ Safety rules (keep them when changing this file):
     match the manifest; a mismatch deletes the partial file. Interrupted downloads resume from the .part file.
   * Archives are extracted into a temporary directory first; members with absolute paths, "..", devices, or
     symlinks that leave their directory are rejected (tarfile's "data" filter; an equivalent check for zip).
-  * Nothing is executed except the loaded engine's sd-cli (for the q8_0 conversion), with an argument list, no shell.
+  * Nothing is executed except the loaded engine's sd-cli (for the q8_0 conversion), with an argument list, no shell
+    (on macOS under the engines' network-denying sandbox, app/engines/registry.py).
   * Enough free disk space is checked before anything is downloaded.
 
 CLI (inside the server image, the models volume mounted at /models):
@@ -66,7 +67,8 @@ class Upstream(TypedDict):
 
 class ManifestItem(TypedDict):
     """One thing to install. file: url/size/sha256 of the file itself; archive: of the archive, plus format, check
-    (a file that proves the install) and optional strip (zip prefix); convert: source (the bf16 file) and type."""
+    (a file that proves the install), optional strip (zip prefix) and skip_links (zip: leave symlinks out, for source
+    archives whose links are not needed to build); convert: source (the bf16 file) and type."""
 
     id: str
     kind: Literal["file", "archive", "convert"]
@@ -76,6 +78,7 @@ class ManifestItem(TypedDict):
     sha256: NotRequired[str]
     format: NotRequired[Literal["tar.gz", "zip"]]
     strip: NotRequired[str]
+    skip_links: NotRequired[bool]
     check: NotRequired[str]
     type: NotRequired[str]
     source: NotRequired[Source]
@@ -317,8 +320,9 @@ def _extract_tar(archive: str, into: str) -> None:
         t.extractall(into, filter="data")  # rejects absolute paths, '..', devices and escaping links
 
 
-def _extract_zip(archive: str, into: str, strip: str = "") -> None:
-    """Extract the members under `strip`; symlinks (Unix mode bits) become links to a sibling file only."""
+def _extract_zip(archive: str, into: str, strip: str = "", skip_links: bool = False) -> None:
+    """Extract the members under `strip`; symlinks (Unix mode bits) become links to a sibling file only, or are left
+    out with skip_links."""
     with zipfile.ZipFile(archive) as z:
         for info in z.infolist():
             name = info.filename
@@ -329,6 +333,8 @@ def _extract_zip(archive: str, into: str, strip: str = "") -> None:
             os.makedirs(os.path.dirname(target), exist_ok=True)
             mode = info.external_attr >> 16
             if stat.S_ISLNK(mode):
+                if skip_links:
+                    continue
                 link = z.read(info).decode()
                 if "/" in link or link in ("", ".", ".."):
                     raise SetupError(f"zip symlink {name} -> {link} leaves its directory")
@@ -358,7 +364,7 @@ def extract_archive(it: ManifestItem, archive: str, into: str) -> None:
     if it["format"] == "tar.gz":
         _extract_tar(archive, into)
     else:
-        _extract_zip(archive, into, it.get("strip", ""))
+        _extract_zip(archive, into, it.get("strip", ""), it.get("skip_links", False))
     _relink_text_symlinks(into)
     if "check" in it:
         if not os.path.isfile(os.path.join(into, it["check"])):
@@ -386,7 +392,7 @@ def _convert(it: ManifestItem, src: str, log: Log) -> None:
     sd = engines.runner("sd-cli")
     out = dest_path(it)
     tmp_out = out + ".converting.gguf"
-    cmd = [sd.bin, "-M", "convert", "-m", src, "--type", it["type"], "-o", tmp_out]
+    cmd = [*sd.argv, "-M", "convert", "-m", src, "--type", it["type"], "-o", tmp_out]
     r = subprocess.run(cmd, env=sd.env, capture_output=True, text=True, cwd=tempfile.gettempdir())
     if r.returncode != 0 or not os.path.isfile(tmp_out):
         raise SetupError(f"{it['id']}: conversion failed: {(r.stdout + r.stderr)[-500:]}")
@@ -496,10 +502,13 @@ def main(argv: list[str]) -> int:
                     print(line, flush=True)
                     last = line
 
+        from .engines.registry import EngineUnavailable, engines  # the engine registry imports this module
+
+        engines.reload()  # the q8_0 conversion runs the loaded engine's sd-cli; the server loads it at startup
         threading.Thread(target=show, daemon=True).start()
         try:
             download(m, p)
-        except SetupError as e:
+        except (SetupError, EngineUnavailable) as e:
             print(f"error: {e}", file=sys.stderr)
             return 1
         finally:

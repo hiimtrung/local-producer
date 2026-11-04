@@ -1,16 +1,18 @@
 """What this machine is: OS, CPU architecture, and the GPU compute stack an engine package must target.
 
-Inside the container the GPU is visible through the devices passed in (scripts/run-server.sh) and /sys.
+Inside the container the GPU is visible through the devices passed in (scripts/run-server.sh) and /sys. On macOS the
+server runs natively (containers cannot reach Metal) and the GPU is the Apple silicon chip's own.
 """
 
 import glob
 import os
 import platform
+import subprocess
 from typing import Literal
 
 from ..schemas import ApiModel
 
-Accelerator = Literal["rocm", "cuda", "mlx", "cpu"]
+Accelerator = Literal["rocm", "cuda", "metal", "cpu"]
 KFD_NODES = "/sys/class/kfd/kfd/topology/nodes"
 
 
@@ -44,14 +46,25 @@ def amd_targets(nodes: str = KFD_NODES) -> list[str]:
     return targets
 
 
+def apple_chip() -> str:
+    """The chip's marketing name, e.g. "Apple M4", or "Apple GPU" when sysctl cannot tell."""
+    try:
+        out = subprocess.run(
+            ["/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True, timeout=5
+        ).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        out = ""
+    return out or "Apple GPU"
+
+
 def detect() -> HostInfo:
     system = platform.system().lower()
     arch = platform.machine().lower()
     arch = {"amd64": "x86_64", "aarch64": "arm64"}.get(arch, arch)
     if system == "darwin":
-        return HostInfo(
-            os="macos", arch=arch, accelerator="mlx" if arch == "arm64" else "cpu", gpu="Apple GPU", gpu_targets=[]
-        )
+        if arch == "arm64":  # every Apple silicon Mac has Metal; Intel Macs are not supported
+            return HostInfo(os="macos", arch=arch, accelerator="metal", gpu=apple_chip(), gpu_targets=[])
+        return HostInfo(os="macos", arch=arch, accelerator="cpu", gpu="none supported", gpu_targets=[])
     if os.path.exists("/dev/kfd"):
         targets = amd_targets()
         if targets:

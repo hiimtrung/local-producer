@@ -59,7 +59,7 @@ def run_cli(
     JobCancelled."""
     with gpu_lock:
         before = gpu_mem()
-        cmd = [runner.bin, *args]
+        cmd = [*runner.argv, *args]
         log(f"== job {kind} start ({runner.package}), GPU memory in use {gib(before)}")
         log("   " + " ".join(cmd))
         t0 = time.time()

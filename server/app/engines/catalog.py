@@ -3,6 +3,11 @@
 A package's downloads follow the same rules as the weights (model_setup.validate_items: https, allowlisted hosts,
 size + SHA256, safe destinations). On top of that its runners and library directories must stay inside the package,
 and it may only set plain environment variables, never ones that change how programs are loaded.
+
+Where upstream publishes no binary for a platform (trellis.cpp on macOS), a package pins the source archives like any
+other download and lists build steps: CMake configures and builds the named targets from the extracted, verified
+sources on this machine, the outputs are copied into the package and the sources deleted. Build steps take only
+-D cache entries and target names, never commands, and need CMake plus a C++ compiler on the host.
 """
 
 import json
@@ -22,6 +27,9 @@ CATALOG = os.path.join(
 NAME = r"^[a-z0-9][a-z0-9.-]{0,63}$"
 ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
 FORBIDDEN_ENV = re.compile(r"^(LD_|DYLD_|PATH$|PYTHON|HOME$|SHELL$)")
+CMAKE_ARG = re.compile(r"^-D[A-Za-z][A-Za-z0-9_]*(:[A-Z]+)?=[A-Za-z0-9_.,;+-]*$")
+FORBIDDEN_CMAKE = re.compile(r"^-D(CMAKE_(PROJECT_|USER_MAKE_RULES|TOOLCHAIN_FILE|.*LAUNCHER)|FETCHCONTENT_)")
+TARGET = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 
 
 class Platform(ApiModel):
@@ -49,6 +57,32 @@ class RunnerSpec(ApiModel):
     )
 
 
+class BuildSpec(ApiModel):
+    """Build CLIs from pinned sources with CMake (Release), see the module docstring."""
+
+    id: str
+    source: str = Field(description="Package directory holding the top-level CMakeLists.txt (from the items)")
+    cmake_args: list[str] = Field(default_factory=list, description="-DNAME=VALUE cache entries only")
+    targets: list[str]
+    outputs: dict[str, str] = Field(description="File in the build directory -> where it goes in the package")
+
+    @model_validator(mode="after")
+    def _safe(self) -> Self:
+        safe_relpath(self.source)
+        for arg in self.cmake_args:
+            if not CMAKE_ARG.match(arg) or FORBIDDEN_CMAKE.match(arg):
+                raise SetupError(f"build {self.id}: CMake argument {arg!r} is not allowed")
+        for target in self.targets:
+            if not TARGET.match(target):
+                raise SetupError(f"build {self.id}: bad target {target!r}")
+        if not self.outputs:
+            raise SetupError(f"build {self.id}: no outputs")
+        for src, dst in self.outputs.items():
+            safe_relpath(src)
+            safe_relpath(dst)
+        return self
+
+
 class PackageSpec(ApiModel):
     id: str = Field(pattern=NAME)
     version: str = Field(pattern=NAME)
@@ -59,6 +93,7 @@ class PackageSpec(ApiModel):
     lib_dirs: list[str] = Field(default_factory=list, description="Shared runtime libraries, before each runner's")
     runners: dict[str, RunnerSpec]
     items: list[ManifestItem]
+    build: list[BuildSpec] = Field(default_factory=list, description="CMake builds run after the downloads")
 
     @model_validator(mode="after")
     def _paths_stay_inside(self) -> Self:
@@ -73,6 +108,12 @@ class PackageSpec(ApiModel):
         for name in self.runners:
             if not re.match(NAME, name):
                 raise SetupError(f"{self.id}: bad runner name {name!r}")
+        dests = [safe_relpath(it["dest"]) for it in self.items]
+        for b in self.build:
+            if not any(b.source == d or b.source.startswith(d + "/") for d in dests):
+                raise SetupError(f"{self.id}: build {b.id} source {b.source} is not one of the downloads")
+            if any(dst == b.source or dst.startswith(b.source + "/") for dst in b.outputs.values()):
+                raise SetupError(f"{self.id}: build {b.id} writes into its own sources, which are deleted")
         return self
 
     @property

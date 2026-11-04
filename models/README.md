@@ -10,7 +10,13 @@ The locations are set in `scripts/lp-env.sh` (shared by `scripts/run-server.sh` 
 | Library: job results (`jobs/<id>/`) and uploads | `~/.local-producer/library` | `/library` (`LIBRARY_DIR`) |
 | Server state: `config.json`, `server.log` (jobs, CLI output, GPU memory per job), `container.log` | `~/.local-producer/server` | `/data` (`DATA_DIR`) |
 
-Volumes live in `~/.local/share/containers/storage/volumes/<name>/_data` (`podman volume inspect`), on the same disk as
+**macOS (Apple silicon)** runs the server natively (`scripts/run-native.sh`; containers cannot reach Metal): weights and
+engine packages are the plain directories `~/.local-producer/models` and `~/.local-producer/engines` (`MODELS_DIR`,
+`ENGINES_DIR`), the server's Python environment is `~/.local-producer/venv` (from `server/requirements-macos.txt`), and
+the startup / matting log is `~/.local-producer/server/native.log` instead of `container.log`. Deleting a directory
+deletes its contents; nothing else changes.
+
+On Linux, volumes live in `~/.local/share/containers/storage/volumes/<name>/_data` (`podman volume inspect`), on the same disk as
 the home directory here, outside every image layer: rebuilding the image keeps them; `podman volume rm` or
 `podman system prune --volumes` deletes them.
 
@@ -41,3 +47,4 @@ Installed as `<id>/<version>/` with the catalog entry in `package.json`; `active
 | Package | Contents | Source |
 | :--- | :--- | :--- |
 | `rocm-gfx1103` | `sdcpp/`: stable-diffusion.cpp `sd-cli` + libs, HIP build with gfx1100-1103 code objects; `trellis/`: trellis.cpp `trellis-cli` + libs, HIP build with gfx1103 code objects; `rocm/`: AMD TheRock ROCm 10.1.0 runtime (HIP, hipBLAS, rocBLAS, LLVM OpenMP) | GitHub `leejet/stable-diffusion.cpp` release `master-964-1d0a58a` (`...-rocm-10.1.0.zip`, contents of `build/bin/`; the zip stores the `.so` symlinks as small text files, recreated as symlinks); GitHub `pwilkin/trellis.cpp` release `v0.8.1` (`trellis-rocm-linux-x64.tar.gz`); `stable.repo.amd.com/rocm/whl-next` wheels `rocm-sdk-core`, `rocm-sdk-libraries`, `rocm-sdk-device-gfx1103` 10.1.0 (unpacked, not pip-installed) |
+| `metal-arm64` | `sdcpp/`: stable-diffusion.cpp `sd-cli` + `libstable-diffusion.dylib` (universal binary, Metal, finds its dylib through `@executable_path`); `trellis/`: `trellis-cli` built on this Mac from source (ggml Metal with the shaders embedded, `GGML_NATIVE` = tuned for this CPU, static, no WebP; the sources are deleted after the build) | GitHub `leejet/stable-diffusion.cpp` release `master-964-1d0a58a` (`...-bin-Darwin-macOS-26.6.2-arm64.zip`, the same version as the ROCm package); trellis.cpp has no macOS release, so the GitHub source archives of `pwilkin/trellis.cpp` at the `v0.8.1` commit `c0bed38` and of its `thirdparty/ggml` submodule `pwilkin/ggml` at `f8697b3` are pinned (size + SHA256, identical over two downloads on 2026-11-03; GitHub-generated archives are not guaranteed byte-stable, a mismatch fails the install safely), built with CMake (`server/app/engines/build.py`, needs CMake and the Xcode Command Line Tools; full output in `~/.local-producer/server/engine-build.log`) |
