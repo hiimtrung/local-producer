@@ -3,6 +3,8 @@
 # Every update PR targets main, the only long-lived branch (trunk-based).
 # The server's runtime packages (fastapi, ...) are pinned twice, in pyproject.toml (uv) and server/requirements.in (pip):
 # the two ecosystems open separate PRs for the same bump, which must be merged together.
+# The pip job rewrites one lock file per directory (it took server/requirements-macos.txt): after a pip PR, check that
+# the other lock file carries the same versions, because their headers require both to agree.
 version: 2
 updates:
   - package-ecosystem: github-actions
