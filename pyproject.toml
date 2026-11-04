@@ -17,7 +17,7 @@ Changelog = "https://github.com/hiimtrung/local-producer/blob/main/CHANGELOG.md"
 dev = [
     "ruff==0.17.3",
     "mypy==2.4.0",
-    "pytest==9.1.1",
+    "pytest==9.2.0",
     "pre-commit==4.7.0",
     "httpx==0.28.1",
     # same versions as server/requirements.txt, so the server is tested with what the image runs
