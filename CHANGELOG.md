@@ -6,6 +6,69 @@ Machine: ThinkPad P14s Gen 4, Ryzen 7 PRO 7840U, Radeon 780M (gfx1103), Ubuntu 2
 
 ---
 
+## 2026-10-22 — FLUX.3 Image Klein on sd.cpp HIP: runs, ~3.4x slower than FLUX.2-klein
+
+- **Goal:** can Black Forest Labs' FLUX.3 Image Klein (open weights since 2026-10-15, FLUX Kommunity License v1.0:
+  free commercial use under US$5M revenue; BFL's own repo is gated, leejet's GGUFs are not) replace or complement
+  FLUX.2-klein-4B on this machine?
+- **What it is (upstream docs, not measured here):** a ~5.6B distilled diffusion transformer (16 steps, CFG 1), the
+  **same FLUX.2 VAE**, and a new text encoder, Qwen3-VL-4B-Instruct (not the Qwen3-4B FLUX.2-klein uses). Support in
+  stable-diffusion.cpp from PR #2143 (merged 2026-10-15, first tag master-968); our engine package has master-964.
+- **Configuration:** sd.cpp `master-987-a77d362` upstream Linux ROCm 10.1.0 build (zip sha256 `00f33a60...`), run as
+  one `sd-cli` per image in the server image with the ROCm libraries of engine package rocm-gfx1103 2026.10.15,
+  `--network none`, `AMD_SERIALIZE_KERNEL=3`, cwsr_enable=0. FLUX.3: leejet `flux3-image-klein-Q8_0.gguf` (6.15 GB) +
+  `Qwen3VL-4B-Instruct-Q8_0.gguf` (4.28 GB; both SHA256 = Hugging Face's) + our `flux2-vae.safetensors`, `--sampling-method
+  euler`. FLUX.2: our q8_0 converted model + Qwen3-4B q8_0. Both: the sample cat prompt (`scripts/make_sample.py`),
+  seed 7, 1024x1024, CFG 1, `--vae-tiling --flash-attn off,diffusion=on`. Peak GTT sampled every 0.5 s on the host.
+
+  | Run | Steps | Wall | Sampling | VAE decode | Peak GTT over idle |
+  |---|---|---|---|---|---|
+  | FLUX.2 q8_0, master-964 (current engine) | 4 | 57.1 s | 35.3 s | 18.1 s | 8.4 GiB |
+  | FLUX.2 q8_0, master-987 (n=2) | 4 | 57.5 / 57.5 s | 36.4 / 36.3 s | 18.3 / 18.3 s | 8.4 GiB |
+  | FLUX.3 Q8_0, master-987 (n=2) | 16 | 191.6 / 196.7 s | 169.9 / 174.7 s | 18.5 / 19.0 s | 9.8 GiB |
+  | FLUX.3 Q8_0, master-987 | 8 | 115.0 s | 92.8 s | 19.4 s | 9.8 GiB |
+
+- **Stability:** 6 of 6 runs finished; GPU resets + ring timeouts 0 before and 0 after every run.
+- **No regression for FLUX.2:** master-987 gives a bit-identical image to master-964 (same SHA256); the repeat runs
+  are bit-identical too (deterministic). The ~1 s difference in sampling between the two builds is within what n=1
+  vs n=2 can show.
+- **Speed:** FLUX.3 sampling costs ~10.8 s per step vs ~9.1 s for FLUX.2 (1.2x per step), but it is distilled for
+  16 steps instead of 4: ~3.4x the wall time per 1024^2 image at its default. 8 steps: 2.0x.
+- **Look (one prompt, one seed: no conclusion about quality in general):** FLUX.3 draws a grey-and-white plush cat
+  with a felt/fur texture, facing almost straight to the camera; FLUX.2 draws an orange-and-white glossy toy in the
+  requested three-quarter view. So on this sample FLUX.3 followed the "three-quarter view" instruction worse and
+  chose a grey coat on the grey background (a matting risk for image-to-3D). 8 and 16 steps look nearly the same.
+  BFL recommends a prompt upsampler (a separate 9B model) for short prompts; not tried.
+- **Conclusion:** FLUX.3 Image Klein **runs** on the 780M with sd.cpp HIP at Q8_0 within GTT, stably, but at ~3.4x
+  the time and without a visible gain on the image-to-3D sample. Keeping FLUX.2-klein as the default. Integrating
+  FLUX.3 as an optional image family needs: an engine package with sd.cpp >= master-968 (safe for FLUX.2, above),
+  the Qwen3-VL-4B text encoder as a new shared component (+4.3 GB), and per-family default steps (16) and sampler.
+  Before that, a wider comparison (several subjects and seeds, matting + TRELLIS.2 on the results) would show whether
+  it is worth it. Weights and outputs: `~/.local-producer/experiments/flux3/` (not in git).
+- **Step sweep (same day, same configuration):** FLUX.3 at 16 / 12 / 8 / 6 / 4 / 3 / 2 steps and FLUX.2 at 4 steps,
+  on 2 subjects ("a cute cat", "a friendly retro robot", both with the add-on's character framing) x 2 seeds (7,
+  1234) = 32 images; then every image through the server's matting (`isnet-general-use` + `fill_holes`). 32 of 32
+  runs finished, GPU resets 0 before and after. Wall time per 1024^2 image, min-max over the 4 subject/seed pairs:
+
+  | | FLUX.2 4 | FLUX.3 16 | 12 | 8 | 6 | 4 | 3 | 2 |
+  |---|---|---|---|---|---|---|---|---|
+  | Wall (s) | 57-67 | 190-224 | 150-178 | 113-123 | 95-100 | 72-76 | 60-62 | 48-51 |
+
+  The spread within one setting (up to ~18 %, later runs slower) is larger than the step-to-step noise of the first
+  benchmark; its cause (heat?) is not measured.
+- **Look vs steps (visual, 4 images per setting):** 16, 12 and 8 steps are nearly indistinguishable on all four.
+  6 steps keeps the composition and colours with small detail changes. 4 steps keeps the composition but shifts
+  colours and markings (stripes appear on the cats, one robot's face changes). 3 steps changes the subject visibly and
+  adds noise; 2 steps is broken (smeared fur, wrong colours, noisy robot). **The minimum that matches the 16-step
+  image is 6 steps (~97 s, ~1.5x FLUX.2); 4 steps (~73 s, ~1.15x) is usable but drifts.**
+- **Matting:** clean on all 32: no body part cut away, the grey cat on the grey background included. Alpha
+  coverage (share of the 1024^2 frame kept) is stable across FLUX.3 steps 16-4 (cat 0.27-0.29, robot 0.23-0.26) and
+  drops a little only at 2-3 steps. FLUX.3 draws the subject larger in the frame than FLUX.2 (0.20-0.26).
+- **View:** FLUX.3 draws the subjects mostly facing the camera, at most a slight turn; FLUX.2 follows the requested
+  three-quarter view more closely on all four. Whether the frontal view gives worse TRELLIS.2 meshes is not measured.
+
+---
+
 ## 2026-10-15 — Shared components, main models as options
 
 - **Goal (maintainer request):** "built-in" should mean only the shared parts a main model needs, not a main model:
