@@ -90,8 +90,6 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-14]
     runs-on: ${{ matrix.os }}
-    env:
-      LP_HOME: ${{ runner.temp }}/lp
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -102,6 +100,8 @@ jobs:
           node-version: 24.21.0
       - name: Install web dependencies
         run: cd web && npm ci --ignore-scripts
+      - name: Set LP_HOME
+        run: echo "LP_HOME=$RUNNER_TEMP/lp" >> "$GITHUB_ENV"
       - name: Verify data root matches LP_HOME
         run: |
           root="$(scripts/lp root)"
