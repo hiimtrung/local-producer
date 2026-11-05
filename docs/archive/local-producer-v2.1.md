@@ -1,10 +1,13 @@
 # LOCAL PRODUCER — SPECIFICATION FOR A LOCAL SCIENCE/ENGINEERING EXPLAINER-VIDEO PIPELINE
 
+> **Archived 2026-11-05.** Superseded. Current architecture and decisions live in the
+> [ADR index](../adr/README.md) and the [desktop architecture study](../analysis/2026-11-desktop-architecture.md);
+> the runtime reference pages land with P1. Kept for the measured Blender/ROCm facts and data formats that are still
+> valid; nothing here describes the current code.
+
 | | |
 | :--- | :--- |
-| **Version** | 2.1 (updated after hands-on verification of Blender and LocalAI on the target machine) |
-| **Date** | 2026-10-06 |
-| **Status** | **Legacy draft — partly superseded.** The architecture is being redesigned; see `CHANGELOG.md` (entry "2026-10-06 — Cleanup") and `AGENTS.md`. Sections 7 (local LLM, ROCm), 8.3/8.4 (local-LLM Manim generation, 3D-avatar A-roll) and 12 no longer reflect current decisions: the local LLM backend is now **Vulkan, not ROCm**, and a cloud LLM plus a different A-roll approach are under discussion. Everything else (measured Blender/Podman facts, data formats, FFmpeg assembly) is still valid reference material. |
+| **Status** | Superseded — archived, not maintained |
 | **Target machine** | AMD Ryzen 7 PRO 7840U (Radeon 780M, gfx1103), 64 GB RAM, Ubuntu 26.04, Podman 5.7 rootless |
 
 Note on language: the **language of each video is chosen per request** (field `language` in `script.json`, §6.3); the narration TTS can be any language for which a voice is available. Vietnamese was the first target and is the only language tested so far, so the samples and measurements below are Vietnamese (with English glosses in parentheses). Everything else in this document is English.

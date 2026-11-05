@@ -40,23 +40,11 @@ from ..gpu import JobFailed, gpu_lock, log
 from ..model_setup import Opener, Progress, SetupError
 from ..schemas import ApiModel
 from ..settings import paths
-from . import backends, build
+from . import backends, build, sandbox
 from .catalog import Catalog, PackageSpec, Planned, load_catalog, version_key
 from .host import HostInfo, detect
 
 SELF_TEST_TIMEOUT = 60
-# macOS: the server runs natively, without the container's isolation, so every engine CLI starts under the system
-# sandbox with networking denied (a crafted weights file that hit a parser bug could not reach the network). Metal,
-# the file system and the CLI's own threads are unaffected.
-SANDBOX_EXEC = "/usr/bin/sandbox-exec"
-SANDBOX_PROFILE = "(version 1)(allow default)(deny network*)"
-
-
-def _prefix(host: HostInfo) -> tuple[str, ...]:
-    """What every engine CLI is started under on this machine."""
-    if host.os == "macos" and os.access(SANDBOX_EXEC, os.X_OK):
-        return (SANDBOX_EXEC, "-p", SANDBOX_PROFILE)
-    return ()
 
 
 class EngineUnavailable(JobFailed):
@@ -138,7 +126,7 @@ class UpdateReport(ApiModel):
 class StorageInfo(ApiModel):
     name: str
     path: str
-    source: str = Field(description="Where it lives on the host (set by scripts/run-server.sh)")
+    source: str = Field(description="Where it lives on the host")
     free: int | None
 
 
@@ -378,7 +366,7 @@ class Engines:
         env = dict(os.environ, **a.spec.env, LD_LIBRARY_PATH=":".join(lib_dirs))
         return Runner(
             bin=os.path.join(a.root, spec.bin), env=env, package=f"{a.spec.id} {a.spec.version}",
-            prefix=_prefix(self.host()),
+            prefix=sandbox.prefix(self.host()),
         )  # fmt: skip
 
     # ------------------------------------------------------------ load / reload
@@ -400,7 +388,7 @@ class Engines:
             env = dict(os.environ, **spec.env, LD_LIBRARY_PATH=":".join(lib_dirs))
             try:
                 p = subprocess.run(
-                    [*_prefix(self.host()), exe, *r.self_test], env=env, capture_output=True, text=True,
+                    [*sandbox.prefix(self.host()), exe, *r.self_test], env=env, capture_output=True, text=True,
                     errors="replace", timeout=SELF_TEST_TIMEOUT, cwd=tempfile.gettempdir(),
                 )  # fmt: skip
             except (OSError, subprocess.TimeoutExpired) as e:
@@ -421,6 +409,7 @@ class Engines:
             problem = (
                 spec.platform.mismatch(self.host())
                 or backends.preflight(spec.platform.accelerator)
+                or sandbox.problem(self.host())
                 or self._self_test(spec, root)
             )
             if problem:

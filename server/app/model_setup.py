@@ -12,7 +12,7 @@ Safety rules (keep them when changing this file):
     (on macOS under the engines' network-denying sandbox, app/engines/registry.py).
   * Enough free disk space is checked before anything is downloaded.
 
-CLI (inside the server image, the models volume mounted at /models):
+CLI (under server/, with weights under MODELS_DIR):
   python model_setup.py status            what is installed (fast: existence + size)
   python model_setup.py verify            full SHA256 check of the installed files
   python model_setup.py download          fetch and install whatever is missing

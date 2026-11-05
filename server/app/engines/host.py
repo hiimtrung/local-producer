@@ -1,7 +1,7 @@
 """What this machine is: OS, CPU architecture, and the GPU compute stack an engine package must target.
 
-Inside the container the GPU is visible through the devices passed in (scripts/run-server.sh) and /sys. On macOS the
-server runs natively (containers cannot reach Metal) and the GPU is the Apple silicon chip's own.
+The server runs natively on the host: on Linux the GPU is detected via /sys/class/kfd and driver properties;
+on macOS the GPU is detected as the host Apple silicon chip.
 """
 
 import glob

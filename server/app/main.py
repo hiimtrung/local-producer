@@ -1,4 +1,7 @@
-"""Application factory and entry point: `python -m app.main [--host H] [--port P]` (cwd = server/)."""
+"""Application factory and entry point: `python -m app.main [--host H] [--port P]` (cwd = server/).
+
+Native HTTP server.
+"""
 
 import argparse
 import os
@@ -27,7 +30,7 @@ def create_app() -> FastAPI:
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--host", default="0.0.0.0")  # inside the container; the host publishes 127.0.0.1 only
+    p.add_argument("--host", default="127.0.0.1")  # native execution; loopback only by default
     p.add_argument("--port", type=int, default=13305)
     args = p.parse_args()
     model_setup.MODELS = paths.models

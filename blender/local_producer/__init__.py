@@ -1,7 +1,7 @@
 """LocalProducer, the Blender add-on of local-producer: generate a textured (PBR) mesh from an image or a prompt via
 FLUX.2 + TRELLIS.2 on the local GPU server, and import the 3D models already in the server's Library.
 
-The server is local-producer's GPU server (scripts/run-server.sh: FLUX.2 and TRELLIS.2 on ROCm, one process per
+The server is local-producer's GPU server (scripts/lp: FLUX.2 and TRELLIS.2 on ROCm or Metal, one process per
 job) on http://127.0.0.1:13305 (POST /v1/3d/generations; the request format follows AMD Lemonade's API, which the
 project used before 2026-10-14).
 
@@ -73,7 +73,7 @@ DEFAULT_URL = "http://127.0.0.1:13305"
 # regenerate with scripts/make_sample.py),
 # shipped inside the add-on package so every test uses the same image.
 DEFAULT_IMAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "samples", "cat.png")
-DEFAULT_MATTE_URL = "http://127.0.0.1:8083"  # local-producer/scripts/run-server.sh (rembg, CPU, same container)
+DEFAULT_MATTE_URL = "http://127.0.0.1:8083"  # local-producer supervisor (rembg, CPU)
 PREVIEW_IMAGE = "LocalProducer Prompt Image"  # bpy image datablock shown in the panel
 LIBRARY_PREVIEW = "LocalProducer Library Preview"  # the selected Library model's input image
 PROMPT_DIR = os.path.join(tempfile.gettempdir(), "local_producer")  # generated prompt images

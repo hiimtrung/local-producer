@@ -1,4 +1,4 @@
-"""Background removal with rembg on the CPU, through the matting server in the same container (127.0.0.1:8083)."""
+"""Background removal with rembg on the CPU, through the matting server started by the supervisor (127.0.0.1:8083)."""
 
 import os
 import urllib.parse

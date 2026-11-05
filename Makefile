@@ -1,19 +1,9 @@
 # Common tasks. `make help` lists them. Python tooling runs through uv (https://docs.astral.sh/uv/).
 SHELL := /bin/bash
-IMAGE ?= localhost/local-producer-gpu
-NAME ?= local-producer-gpu
 
-.PHONY: help dev lint typecheck api-types web-install web-build web-tokens web-dev format test check addon server-build server-up server-down setup engines engines-status models models-status models-verify smoke
+.PHONY: help dev lint typecheck api-types web-install web-build web-tokens web-dev format test check docs-check lock-check check-removal addon server-build server-up server-down setup engines engines-status models models-status models-verify smoke
 
-# A one-off container on the server image with the volumes, host directories and GPU devices (to detect the GPU)
-# of the server (scripts/lp-env.sh). macOS: the native server's Python with the same environment (scripts/run-native.sh).
-ifeq ($(shell uname -s),Darwin)
-RUN_TOOL = scripts/run-native.sh python
-else
-RUN_TOOL = source scripts/lp-env.sh && lp_volumes && lp_mounts && lp_gpu && podman run --rm --userns=keep-id \
-	--user "$$(id -u):$$(id -g)" --cap-drop=all --security-opt no-new-privileges "$${LP_GPU[@]}" \
-	--security-opt label=disable "$${LP_MOUNTS[@]}" --entrypoint python $(IMAGE)
-endif
+RUN_TOOL = scripts/lp exec
 
 help:  ## list the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
@@ -40,11 +30,9 @@ typecheck:  ## mypy --strict on the server, tsc --strict on the web UI, generate
 web-tokens:  ## regenerate web/styles/tokens.css from the Lucent tokens
 	uv run python scripts/gen_tokens_css.py
 
-web-dev:  ## API + web UI on the host, rebuilt on change (http://127.0.0.1:13399; GPU jobs need the container)
+web-dev:  ## API + web UI on the host, rebuilt on change (http://127.0.0.1:13399)
 	cd web && node build.mjs --watch & \
-	source scripts/lp-env.sh && lp_volumes && cd server && MODELS_DIR="$$(lp_mountpoint $$MODELS_VOLUME)" \
-	    ENGINES_DIR=$(CURDIR)/build/web-dev/engines LIBRARY_DIR=$(CURDIR)/build/web-dev/library \
-	    DATA_DIR=$(CURDIR)/build/web-dev ../.venv/bin/python -m app.main --host 127.0.0.1 --port 13399
+	LP_HOME=$(CURDIR)/build/web-dev scripts/lp exec -m app.main --host 127.0.0.1 --port 13399
 
 lint:  ## ruff, shellcheck, secret scan and file hygiene (the same hooks CI runs)
 	uv run pre-commit run --all-files
@@ -57,37 +45,39 @@ test:  ## unit tests (no GPU, no network) and generated-file checks
 	uv run pytest
 	uv run python scripts/gen_tokens_css.py --check
 
-check: lint typecheck test web-build  ## everything CI checks
+docs-check:  ## documentation tree: header tables, orphans, links and anchors, duplicate H1, English only
+	uv run python scripts/check_docs.py
+
+lock-check:  ## check that server lock files match requirements.in and agree across platforms
+	scripts/lock-requirements.sh --check
+
+check-removal:  ## verify container files and references are removed
+	@! git ls-files | grep -E 'Containerfile|\.containerignore|entrypoint\.sh|run-server\.sh|run-native\.sh|lp-env\.sh|\.hadolint\.yaml'
+	@! git grep -n -E '\b(podman|docker)\b' -- . ':!CHANGELOG.md' ':!docs/analysis' ':!docs/plans' ':!docs/archive' ':!Makefile'
+
+check: lint docs-check typecheck test lock-check check-removal web-build  ## everything CI checks
 
 addon:  ## build dist/local_producer.zip
 	blender/build_addon.sh
 
-server-build:  ## build the GPU server image (macOS: set up the native server's Python and web UI)
-ifeq ($(shell uname -s),Darwin)
-	scripts/run-native.sh setup
-else
-	podman build -t $(IMAGE) -f server/Containerfile .
-endif
+server-build:  ## set up the server's Python environment and build the web UI
+	scripts/lp setup
 
-server-up:  ## start the server: web UI + API on http://127.0.0.1:13305, matting on 127.0.0.1:8083 (macOS: native)
-	scripts/run-server.sh
+server-up:  ## start the server: web UI + API on http://127.0.0.1:13305, matting on 127.0.0.1:8083
+	scripts/lp up
 
 server-down:  ## stop the server
-ifeq ($(shell uname -s),Darwin)
-	scripts/run-native.sh stop
-else
-	podman stop $(NAME)
-endif
+	scripts/lp down
 
 setup: engines models  ## install the engine package for this machine, then the models
 
-engines:  ## download, verify and load the engine package for this machine into the engines volume
+engines:  ## download, verify and load the engine package for this machine into the engines directory
 	$(RUN_TOOL) -m app.engines.registry install
 
 engines-status:  ## this machine, the installed engine packages and whether one loads
 	$(RUN_TOOL) -m app.engines.registry status
 
-models:  ## download and install the pinned models into the models volume (~24 GB, SHA256-verified)
+models:  ## download and install the pinned models into the models directory (~24 GB, SHA256-verified)
 	$(RUN_TOOL) -m app.model_setup download
 
 models-status:  ## what is installed (fast: existence and size)

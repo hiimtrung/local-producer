@@ -1,5 +1,5 @@
-# Project metadata and tool configuration. This repository is not a Python package: the server runs in its container
-# (server/), the add-on inside Blender (blender/local_producer/). `uv sync` creates .venv with the dev tools below.
+# Project metadata and tool configuration. This repository is not a Python package: the server runs natively via
+# scripts/lp (server/), the add-on inside Blender (blender/local_producer/). `uv sync` creates .venv with the dev tools below.
 [project]
 name = "local-producer"
 version = "0.3.0"  # = server/app/__init__.py __version__
@@ -20,12 +20,12 @@ dev = [
     "pytest==9.2.0",
     "pre-commit==4.7.0",
     "httpx==0.28.1",
-    # same versions as server/requirements.txt, so the server is tested with what the image runs
+    # same versions as server/requirements.linux.txt, so the server is tested with what runs natively
     "fastapi==0.162.0",
     "uvicorn==0.54.0",
     "python-multipart==0.0.33",
     "pillow==12.3.0",
-    "numpy==2.5.4",  # matte_server.py, type-checked here (rembg itself is only in the image)
+    "numpy==2.5.4",  # matte_server.py, type-checked here
 ]
 
 [tool.uv]
@@ -42,7 +42,6 @@ select = ["E", "W", "F", "I", "B", "S", "UP", "SIM"]
 ignore = [
     "S603",  # subprocess with an argument list (no shell) is how the server runs the pinned CLIs
     "S310",  # urllib with URLs: every URL is fixed in code or checked against the manifest allowlist
-    "S104",  # 0.0.0.0 inside the container; the host publishes 127.0.0.1 only
     "SIM105",
 ]
 
@@ -64,7 +63,7 @@ strict = true
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
 mypy_path = "server"
-files = ["server/app", "server/matte_server.py", "scripts/gen_api_types.py"]
+files = ["server/app", "server/matte_server.py", "scripts/gen_api_types.py", "scripts/lp.py"]
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]

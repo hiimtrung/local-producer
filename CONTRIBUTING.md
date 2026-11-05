@@ -22,11 +22,11 @@ Thanks for helping. This page is the contract for every change; `AGENTS.md` adds
 
 ```bash
 make dev          # uv sync + pre-commit install + npm ci in web/ (needs uv and Node.js 24)
-make check        # what CI runs: lint, secret scan, file hygiene, type checks, unit tests, web build
+scripts/lp setup  # initializes data root, runtime venv, and compiles web UI
+make check        # what CI runs: lint, docs-check, typecheck, unit tests, lock-check, check-removal, web build
 ```
 
-GPU jobs need a machine with an engine package (`README.md`; today AMD gfx1103 + ROCm, `cwsr_enable=0`); unit tests
-do not (they use a fake package).
+GPU jobs need a machine with an engine package (`README.md`; today AMD gfx1103 + ROCm with `cwsr_enable=0`, or Apple silicon Metal); unit tests do not (they use fake engines).
 
 ## Workflow
 

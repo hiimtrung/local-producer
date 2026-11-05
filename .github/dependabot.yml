@@ -1,10 +1,11 @@
 # Weekly update PRs for pinned dependencies. Server lock files must be recompiled with hashes after a bump
-# (see the header of server/requirements*.in); the GPU path then needs `make smoke` on real hardware before merging.
+# (run scripts/lock-requirements.sh); the GPU path then needs `make smoke` on real hardware before merging.
 # Every update PR targets main, the only long-lived branch (trunk-based).
 # The server's runtime packages (fastapi, ...) are pinned twice, in pyproject.toml (uv) and server/requirements.in (pip):
 # the two ecosystems open separate PRs for the same bump, which must be merged together.
-# The pip job rewrites one lock file per directory (it took server/requirements-macos.txt): after a pip PR, check that
-# the other lock file carries the same versions, because their headers require both to agree.
+# The pip ecosystem targets /server, which maintains two platform lock files: requirements.linux.txt and
+# requirements.macos.txt. `make lock-check` (scripts/lock-requirements.sh --check) is the authoritative synchronization
+# gate ensuring both lock files match requirements.in and carry identical package versions.
 version: 2
 updates:
   - package-ecosystem: github-actions

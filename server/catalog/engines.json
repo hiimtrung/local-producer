@@ -1,5 +1,5 @@
 {
-  "_comment": "Engine packages: everything that is specific to one platform (GPU runtime libraries and the CLI builds the pipelines run), installed as a unit under ENGINES_DIR/<id>/<version>/ and loaded by app/engines/. The server image itself holds no GPU code, so a package can be installed, switched or reloaded while the server runs. Every download is pinned by URL, size and SHA256 like catalog/models.json. A package's runners name the CLIs the pipelines ask for (sd-cli: stable-diffusion.cpp, trellis-cli: trellis.cpp) with their library directories.  A package may also build a CLI from pinned sources (\"build\", app/engines/build.py) where upstream publishes no binary. Bumping a version means a new package version (all items reviewed together) and a CHANGELOG.md entry.",
+  "_comment": "Engine packages: everything that is specific to one platform (GPU runtime libraries and the CLI builds the pipelines run), installed as a unit under ENGINES_DIR/<id>/<version>/ and loaded by app/engines/. The server itself holds no GPU code, so a package can be installed, switched or reloaded while the server runs. Every download is pinned by URL, size and SHA256 like catalog/models.json. A package's runners name the CLIs the pipelines ask for (sd-cli: stable-diffusion.cpp, trellis-cli: trellis.cpp) with their library directories.  A package may also build a CLI from pinned sources (\"build\", app/engines/build.py) where upstream publishes no binary. Bumping a version means a new package version (all items reviewed together) and a CHANGELOG.md entry.",
   "version": 1,
   "_hosts": "A download (and every redirect it follows) must be https and its host must equal one of these domains or end with '.' + one of them (CDN hosts vary, e.g. us.aws.cdn.hf.co, release-assets.githubusercontent.com).",
   "allowed_domains": [
@@ -112,7 +112,7 @@
       "id": "metal-arm64",
       "version": "2026.11.3",
       "title": "Apple silicon (Metal) for M1 and later",
-      "description": "stable-diffusion.cpp master-964 (FLUX.2) from its macOS arm64 release and trellis.cpp v0.8.1 (TRELLIS.2) built from source on this Mac (no upstream macOS release; ~5 min with CMake and the Xcode Command Line Tools), both on ggml's Metal backend. Runs in the native server (scripts/run-server.sh on macOS): containers cannot reach Metal.",
+      "description": "stable-diffusion.cpp master-964 (FLUX.2) from its macOS arm64 release and trellis.cpp v0.8.1 (TRELLIS.2) built from source on this Mac (no upstream macOS release; ~5 min with CMake and the Xcode Command Line Tools), both on ggml's Metal backend.",
       "platform": {
         "os": "macos",
         "arch": "arm64",
@@ -208,7 +208,7 @@
     {
       "accelerator": "cuda",
       "title": "NVIDIA CUDA",
-      "description": "Linux x86_64 with an NVIDIA GPU (container with the NVIDIA CDI devices)."
+      "description": "Linux x86_64 with an NVIDIA GPU."
     }
   ]
 }
