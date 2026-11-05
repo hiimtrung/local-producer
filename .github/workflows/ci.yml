@@ -25,10 +25,14 @@ jobs:
       - run: uv sync --locked
       - run: uv run pre-commit run --all-files --show-diff-on-failure
       - run: uv run python scripts/check_docs.py
+      - run: make check-removal
 
   test:
-    name: Unit tests
-    runs-on: ubuntu-24.04
+    name: Unit tests (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -36,6 +40,7 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
       - run: uv sync --locked
       - run: uv run pytest
+      - run: uv run python scripts/check_docs.py
 
   typecheck:
     name: Type checks (mypy --strict, generated API types)
@@ -78,3 +83,45 @@ jobs:
         with:
           name: local_producer
           path: dist/local_producer.zip
+
+  runtime:
+    name: Runtime smoke test (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
+    env:
+      LP_HOME: ${{ runner.temp }}/lp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 24.21.0
+      - name: Install web dependencies
+        run: cd web && npm ci --ignore-scripts
+      - name: Verify data root matches LP_HOME
+        run: |
+          root="$(scripts/lp root)"
+          test "$root" = "$LP_HOME"
+      - name: Setup runtime environment
+        run: scripts/lp setup
+      - name: Start supervisor
+        run: scripts/lp up --no-matte
+      - name: Probe health
+        run: curl -fsS http://127.0.0.1:13305/health
+      - name: Check status
+        run: scripts/lp status
+      - name: Print logs
+        run: scripts/lp logs --lines 20
+      - name: Stop supervisor
+        run: scripts/lp down
+      - name: Assert clean process shutdown
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            ! ps -A -o command= | grep -E 'python.*app\.(main|supervisor)' | grep -v grep
+          else
+            ! pgrep -f 'app\.(main|supervisor)'
+          fi
