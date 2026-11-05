@@ -171,24 +171,6 @@ def test_invalid_commands_exit_2(capsys: pytest.CaptureFixture[str]) -> None:
     assert code == 2
 
 
-def test_setup_migrate_refuses_non_empty_destination(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    lp = load_lp_module()
-    main_fn = lp.main
-
-    target_dir = tmp_path / "non_empty_dest"
-    target_dir.mkdir()
-    (target_dir / "existing.txt").write_text("content", encoding="utf-8")
-
-    monkeypatch.setenv("LP_HOME", str(target_dir))
-
-    code = main_fn(["setup", "--migrate"])
-    assert code == 1
-    err = capsys.readouterr().err
-    assert "Migration refused: destination" in err
-
-
 def test_lp_shell_root_matches_layout(tmp_path: Path) -> None:
     target_root = (tmp_path / "shell_lp_home").resolve()
     env = os.environ.copy()

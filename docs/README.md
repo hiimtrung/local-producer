@@ -51,7 +51,7 @@ and **analysis** (dated measurement reports). Start with the question you have, 
 
 - [`operations/run-headless.md`](./operations/run-headless.md) — CLI usage (`lp setup/up/status/logs/down/doctor`), `LP_HOME`, and systemd unit.
 - [`operations/troubleshooting.md`](./operations/troubleshooting.md) — engine blocked, port conflicts, web build, venv, and GPU resets.
-- [`operations/backup-and-migrate.md`](./operations/backup-and-migrate.md) — directory tree, safe deletions, `LP_HOME`, and migration paths.
+- [`operations/backup-and-migrate.md`](./operations/backup-and-migrate.md) — directory tree, safe deletions, and `LP_HOME`.
 
 ### Development
 

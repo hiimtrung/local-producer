@@ -15,6 +15,7 @@ Useful commands: count GPU resets with `journalctl -k -b | grep -c -E 'GPU reset
 - Goal: after P1 (native runtime, no containers), delete what only the old architecture used and make the docs match the code.
 - Deleted on the reference machine: the Podman container and image `local-producer-gpu`, the volumes `local-producer-models` and `local-producer-engines` (40.5 GB, so every weight and engine package must be downloaded again with `scripts/lp setup`), all remaining images (`podman images` is empty), `~/.local-producer` (12 GB `experiments/flux3`, 198 MB old Library jobs, old server logs and config), and the tool caches in the repository.
 - Docs and code: log paths now point at `<data root>/server/server.log` (`scripts/lp root` prints the root) instead of `~/.local-producer`; `AGENTS.md` no longer calls the whole architecture unsettled; this changelog gained a reading guide, and the LocalAI "Verified configuration" recipe (an obsolete stack, nothing to rebuild) was removed.
+- Removed the one-off migration from the container era: `scripts/lp setup --migrate`, its test, the "Migration from legacy" sections of `docs/operations/backup-and-migrate.md`, and the fallback to the old lock file names (`requirements.txt`, `requirements-macos.txt`). Only the maintainer used the old layout.
 - Not changed: older entries keep their original wording, including the measurements of the deleted FLUX.3 experiment images.
 
 ---
