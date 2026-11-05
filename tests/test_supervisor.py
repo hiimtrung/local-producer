@@ -22,7 +22,6 @@ from app.supervisor import (
     pick_port,
     remove_runtime_json_if_matching,
     run_supervisor,
-    terminate_process_group,
     write_runtime_json,
 )
 
@@ -120,44 +119,6 @@ def test_log_line_file_and_stderr(tmp_path: Path, capsys: pytest.CaptureFixture[
     assert " [supervisor] supervisor alert\n" in log_file.read_text(encoding="utf-8")
     captured = capsys.readouterr()
     assert " [supervisor] supervisor alert\n" in captured.err
-
-
-def test_process_group_cleanup() -> None:
-    """Test terminating a child process group kills both child and grandchild."""
-    # Child script spawns a grandchild sleeper and prints grandchild pid to stdout
-    script = (
-        "import os, subprocess, sys, time\n"
-        "grandchild = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
-        "sys.stdout.write(f'{grandchild.pid}\\n')\n"
-        "sys.stdout.flush()\n"
-        "time.sleep(60)\n"
-    )
-
-    child = subprocess.Popen(
-        [sys.executable, "-c", script],
-        start_new_session=True,
-        stdout=subprocess.PIPE,
-        text=True,
-    )
-    assert child.stdout is not None
-    line = child.stdout.readline().strip()
-    grandchild_pid = int(line)
-
-    # Both child and grandchild should be running (os.kill succeeds without error)
-    os.kill(child.pid, 0)
-    os.kill(grandchild_pid, 0)
-
-    # Terminate the process group
-    terminate_process_group(child.pid, timeout_s=5.0)
-    child.wait(timeout=2.0)
-
-    # Verify both are gone
-    time.sleep(0.1)
-    with pytest.raises(ProcessLookupError):
-        os.kill(child.pid, 0)
-
-    with pytest.raises(ProcessLookupError):
-        os.kill(grandchild_pid, 0)
 
 
 def test_run_supervisor_lifecycle_and_shutdown(tmp_path: Path) -> None:

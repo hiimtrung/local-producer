@@ -133,18 +133,6 @@ class JobManager:
         shutil.rmtree(storage.job_dir(jid), ignore_errors=True)
         return True
 
-    def wait(self, jid: str, timeout: float | None = None) -> Job:
-        """Block until the job has finished (used by the Lemonade-compatible endpoints)."""
-        deadline = None if timeout is None else time.time() + timeout
-        with self.lock:
-            while self.jobs[jid].active:
-                left = None if deadline is None else deadline - time.time()
-                if left is not None and left <= 0:
-                    break
-                self.lock.wait(timeout=left if left is not None else 1.0)
-            job = self.jobs[jid]
-        return self.public(job)
-
     def busy(self) -> bool:
         with self.lock:
             return bool(self.queue) or any(j.state == "running" for j in self.jobs.values())

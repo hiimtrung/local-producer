@@ -1,6 +1,6 @@
 """Background-removal (matting) HTTP server: image bytes in, RGBA PNG out (rembg on the CPU, onnxruntime).
 
-Used by the TRELLIS.2 Blender add-on before the GPU server's /v1/3d/generations: trellis.cpp's own BiRefNet was wrong
+Used by the TRELLIS.2 Blender add-on before the GPU server's mesh.generate job: trellis.cpp's own BiRefNet was wrong
 on RADV
 (its custom Vulkan deformable conv; CHANGELOG 2026-10-12) and its CPU fallback takes ~190 s.
 

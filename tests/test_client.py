@@ -1,6 +1,5 @@
 """HTTP client of the Blender add-on (blender/local_producer/client.py) against a local stub server."""
 
-import base64
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -9,11 +8,16 @@ import pytest
 
 import client
 
+JOB = "d" * 32
+UPLOAD = "e" * 32
+
 
 @pytest.fixture
-def stub():
-    """A local HTTP server that records requests and answers with canned responses."""
+def stub(monkeypatch):
+    """A local HTTP server that records requests and plays the server's job API: queued, then running, then done."""
     seen = []
+    polls = {"n": 0}
+    monkeypatch.setattr(client.time, "sleep", lambda s: None)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -28,15 +32,26 @@ def stub():
 
         def do_GET(self):
             seen.append({"path": self.path, "headers": dict(self.headers), "body": b""})
-            self._reply(200, json.dumps({"ready": True, "items": [], "missing_bytes": 0, "download": {}}).encode())
+            if self.path == f"/v1/jobs/{JOB}":
+                polls["n"] += 1
+                state = "done" if polls["n"] > 1 else "running"
+                self._reply(200, json.dumps({"id": JOB, "state": state, "error": None}).encode())
+            elif self.path.endswith("/files/model.glb"):
+                self._reply(200, b"glTF-binary", "model/gltf-binary")
+            elif self.path.endswith("/files/image.png"):
+                self._reply(200, b"PNG", "image/png")
+            else:
+                self._reply(200, json.dumps({"ready": True, "items": [], "missing_bytes": 0, "download": {}}).encode())
 
         def do_POST(self):
             body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
             seen.append({"path": self.path, "headers": dict(self.headers), "body": body})
-            if self.path == "/v1/3d/generations":
-                self._reply(200, b"glTF-binary", "model/gltf-binary")
-            elif self.path == "/v1/images/generations":
-                self._reply(200, json.dumps({"data": [{"b64_json": base64.b64encode(b"PNG").decode()}]}).encode())
+            if self.path == "/v1/uploads":
+                self._reply(
+                    200, json.dumps({"id": UPLOAD, "type": "png", "size": len(body), "name": "image.png"}).encode()
+                )
+            elif self.path == "/v1/jobs":
+                self._reply(202, json.dumps({"id": JOB, "state": "queued", "error": None}).encode())
             else:
                 self._reply(503, b'{"detail": "models are missing"}')
 
@@ -47,15 +62,43 @@ def stub():
     client.auth["token"] = ""
 
 
-def test_request_glb_sends_steps_and_skips_auto_bg_removal(stub, tmp_path):
+def _job_body(seen):
+    return next(json.loads(r["body"]) for r in seen if r["path"] == "/v1/jobs")
+
+
+def test_request_glb_uploads_the_image_and_queues_a_mesh_job(stub, tmp_path):
     url, seen = stub
     img = tmp_path / "in.png"
     img.write_bytes(b"\x89PNG\r\n\x1a\nfake")
     assert client.request_glb(url, str(img), seed=5, resolution=1024, steps=6) == b"glTF-binary"
-    payload = json.loads(seen[-1]["body"])
-    assert payload["steps"] == 6 and payload["resolution"] == 1024 and payload["seed"] == 5
-    assert "bg_removal" not in payload
-    assert base64.b64decode(payload["image"]).startswith(b"\x89PNG")
+    body = _job_body(seen)
+    assert body["kind"] == "mesh.generate"
+    assert body["params"] == {
+        "image": {"upload": UPLOAD}, "matting": "none", "resolution": 1024, "seed": 5, "steps": 6,
+    }  # fmt: skip
+    assert any(b"fake" in r["body"] for r in seen if r["path"] == "/v1/uploads")
+
+
+def test_request_edit_sends_the_instruction(stub):
+    url, seen = stub
+    assert client.request_edit(url, b"\x89PNG", "A-pose", seed=3, steps=4) == b"PNG"
+    body = _job_body(seen)
+    assert body["kind"] == "image.edit" and body["params"]["preset"] == "custom"
+    assert body["params"]["prompt"] == "A-pose" and body["params"]["image"] == {"upload": UPLOAD}
+
+
+def test_a_failed_job_raises_with_the_server_error(stub, monkeypatch):
+    url, _ = stub
+    monkeypatch.setattr(client, "job_file", lambda *a, **k: b"")
+    real = client._json
+
+    def failing(api_url, path, payload=None, timeout=10, method="POST"):
+        job = real(api_url, path, payload, timeout, method)
+        return {**job, "state": "failed", "error": "out of memory"} if method == "GET" else job
+
+    monkeypatch.setattr(client, "_json", failing)
+    with pytest.raises(RuntimeError, match="image.generate failed: out of memory"):
+        client.request_image(url, "a cat")
 
 
 def test_token_is_sent_as_bearer(stub):

@@ -8,16 +8,18 @@ Run on the host with the dev environment (it has Pillow), the server running:
 (make smoke does the Fast variant: 512, 3, 6). SERVER_TOKEN is sent when set.
 """
 
-import base64
 import io
-import json
 import os
+import pathlib
 import sys
+import tempfile
 import time
 import urllib.request
-import uuid
 
 from PIL import Image
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "blender/local_producer"))
+import client  # noqa: E402  (the add-on's HTTP client; no bpy)
 
 API, MATTE = "http://127.0.0.1:13305", "http://127.0.0.1:8083"
 # Keep in sync with blender/local_producer (APOSE_EDIT + FRAMING_TAIL, EDIT_BACKGROUND).
@@ -32,10 +34,11 @@ EDIT_PROMPT = (
 BACKGROUND = (0.53, 0.54, 0.54)
 
 
+client.auth["token"] = os.environ.get("SERVER_TOKEN", "")
+
+
 def post(url, data, ctype, timeout=7200):
     headers = {"Content-Type": ctype}
-    if os.environ.get("SERVER_TOKEN"):
-        headers["Authorization"] = f"Bearer {os.environ['SERVER_TOKEN']}"
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read()
@@ -43,7 +46,7 @@ def post(url, data, ctype, timeout=7200):
 
 src, out_dir = sys.argv[1], sys.argv[2]
 res = int(sys.argv[3]) if len(sys.argv) > 3 else 512
-image_steps = sys.argv[4] if len(sys.argv) > 4 else "4"
+image_steps = int(sys.argv[4]) if len(sys.argv) > 4 else 4
 mesh_steps = int(sys.argv[5]) if len(sys.argv) > 5 else None
 os.makedirs(out_dir, exist_ok=True)
 img = Image.open(src).convert("RGBA")
@@ -52,30 +55,7 @@ buf = io.BytesIO()
 Image.alpha_composite(bg, img).convert("RGB").save(buf, "PNG")
 
 t = time.time()
-b = uuid.uuid4().hex
-fields = {
-    "model": "Flux-2-Klein-4B",
-    "prompt": EDIT_PROMPT,
-    "size": "1024x1024",
-    "steps": image_steps,
-    "cfg_scale": "1.0",
-    "seed": "7",
-    "response_format": "b64_json",
-}
-body = b"".join(
-    f'--{b}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode() for k, v in fields.items()
-)
-body += (
-    (
-        f'--{b}\r\nContent-Disposition: form-data; name="image"; filename="image.png"\r\n'
-        f"Content-Type: image/png\r\n\r\n"
-    ).encode()
-    + buf.getvalue()
-    + f"\r\n--{b}--\r\n".encode()
-)
-apose = base64.b64decode(
-    json.loads(post(f"{API}/v1/images/edits", body, f"multipart/form-data; boundary={b}"))["data"][0]["b64_json"]
-)
+apose = client.request_edit(API, buf.getvalue(), EDIT_PROMPT, seed=7, steps=image_steps, size=1024)
 with open(f"{out_dir}/apose.png", "wb") as f:
     f.write(apose)
 print(f"edit {time.time() - t:.1f} s", flush=True)
@@ -87,19 +67,10 @@ with open(f"{out_dir}/apose_matted.png", "wb") as f:
 print(f"matte {time.time() - t:.1f} s", flush=True)
 
 t = time.time()
-glb = post(
-    f"{API}/v1/3d/generations",
-    json.dumps(
-        {
-            "model": "TRELLIS-3D",
-            "image": base64.b64encode(matted).decode(),
-            "seed": 1234,
-            "resolution": res,
-            **({"steps": mesh_steps} if mesh_steps else {}),
-        }
-    ).encode(),
-    "application/json",
-)
+with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
+    tmp.write(matted)
+    tmp.flush()
+    glb = client.request_glb(API, tmp.name, seed=1234, resolution=res, steps=mesh_steps)
 with open(f"{out_dir}/mesh.glb", "wb") as f:
     f.write(glb)
 print(

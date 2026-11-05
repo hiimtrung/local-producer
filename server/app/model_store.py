@@ -564,15 +564,6 @@ class ModelStore:
         mid, staging = self._stage(family, title)
         return UploadSink(self, mid, staging, family, title, name)
 
-    def add_upload(self, family: str, title: str, filename: str, chunks: Iterator[bytes]) -> ModelInfo:
-        sink = self.begin_upload(family, title, filename)
-        try:
-            for b in chunks:
-                sink.write(b)
-            return sink.finish()
-        finally:
-            sink.abort()
-
     def remove(self, model_id: str) -> None:
         m = self.get(model_id)
         if m is None:

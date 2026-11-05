@@ -11,11 +11,9 @@ DELETE /v1/jobs/{id}             delete a finished job and its files
 GET  /v1/jobs/{id}/files/{name}  a result file
 """
 
-from typing import Any
-
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from .. import model_setup, storage
 from ..engines.registry import engines
@@ -28,10 +26,6 @@ from ..settings import MAX_IMAGE_BYTES
 from . import setup
 
 router = APIRouter()
-
-
-def validation_error(e: ValidationError) -> HTTPException:
-    return HTTPException(422, e.errors(include_url=False, include_context=False, include_input=False))
 
 
 def check_refs(params: BaseModel) -> None:
@@ -58,15 +52,6 @@ def submit(kind: str, params: BaseModel) -> Job:
         store.require(pipeline.model_family, getattr(params, "model", None))
     check_refs(params)
     return manager.submit(kind, params)
-
-
-def submit_raw(kind: str, raw: dict[str, Any]) -> Job:
-    """submit() for params built in code (the compat endpoints); invalid values become a 422."""
-    try:
-        params = PIPELINES[kind].Params.model_validate(raw)
-    except ValidationError as e:
-        raise validation_error(e) from None
-    return submit(kind, params)
 
 
 @router.get("/v1/pipelines")

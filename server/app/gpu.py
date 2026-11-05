@@ -2,7 +2,7 @@
 
 Every GPU job is its own process (sd-cli / trellis-cli from the loaded engine package, app/engines/), so all its GPU
 memory is released when it exits: FLUX.2 is gone before TRELLIS.2 starts (CHANGELOG 2026-10-14). The lock keeps jobs
-from overlapping even if a caller bypasses the job queue (the Lemonade-compatible endpoints wait on the same queue).
+from overlapping even if a caller bypasses the job queue.
 """
 
 import os
@@ -54,8 +54,8 @@ def run_cli(
     on_line: Callable[[str], None] | None = None,
     cancel: threading.Event | None = None,
 ) -> None:
-    """Run the engine runner with args under the GPU lock. Streams each output line to the log (Lemonade's
-    "[Info] (Process)" format, which the add-on's progress parser strips) and to on_line. Raises JobFailed /
+    """Run the engine runner with args under the GPU lock. Streams each output line to the log (as
+    "[Info] (Process) <line>", which the add-on's progress parser strips) and to on_line. Raises JobFailed /
     JobCancelled."""
     with gpu_lock:
         before = gpu_mem()
