@@ -53,7 +53,7 @@ lock-check:  ## check that server lock files match requirements.in and agree acr
 
 check-removal:  ## verify container files and references are removed
 	@! git ls-files | grep -E 'Containerfile|\.containerignore|entrypoint\.sh|run-server\.sh|run-native\.sh|lp-env\.sh|\.hadolint\.yaml'
-	@! git grep -n -E '\b(podman|docker)\b' -- . ':!CHANGELOG.md' ':!docs/analysis' ':!docs/plans' ':!docs/archive'
+	@! git grep -n -E '\b(podman|docker)\b' -- . ':!CHANGELOG.md' ':!docs/analysis' ':!docs/plans' ':!docs/archive' ':!Makefile'
 
 check: lint docs-check typecheck test lock-check check-removal web-build  ## everything CI checks
 
