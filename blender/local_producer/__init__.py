@@ -14,8 +14,8 @@ Edit > Preferences > Add-ons > (menu) Install from Disk... > the zip.
 Panels: 3D Viewport > Sidebar (N) > LocalProducer: "Image to Textured Mesh" and "Library" (the server's finished 3D
 models with their input image as preview; Import downloads the GLB, GET /v1/jobs/<id>/files/model.glb).
 Renamed from "TRELLIS.2 Image to Textured Mesh" (id trellis_addon) in 0.14.0: remove the old add-on first.
-Live progress: set "Server Log" in the add-on preferences to ~/.local-producer/server/server.log; the panel tails it
-(stage and flow step).
+Live progress: set "Server Log" in the add-on preferences to <data root>/server/server.log
+(docs/reference/storage.md); the panel tails it (stage and flow step).
 Background removal: images without an alpha mask are cut out first by the local matting server (rembg on the
 CPU, ~0.6 s); trellis.cpp's own BiRefNet gave wrong masks on the Radeon 780M (Vulkan, pixal3d.cpp fork; not checked
 with the HIP build).
@@ -571,7 +571,7 @@ class LocalProducerPreferences(bpy.types.AddonPreferences):
         name="Server Log",
         subtype="FILE_PATH",
         default="",
-        description="Log of the GPU server (~/.local-producer/server/server.log); read for live progress. Optional",
+        description="Log of the GPU server (<data root>/server/server.log); read for live progress. Optional",
     )
 
     server_token: StringProperty(
