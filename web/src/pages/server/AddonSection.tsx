@@ -69,7 +69,7 @@ export function AddonSection() {
           <ol className="steps callout">
             <li>
               In the add-on preferences set Server Log to{" "}
-              <code className="code">~/.local-producer/server/server.log</code> (the server state directory) for live
+              <code className="code">server/server.log</code> in the data root (<code className="code">scripts/lp root</code> prints it) for live
               progress, and Server Token if the server uses one.
             </li>
             <li>Open the 3D Viewport sidebar (N), tab LocalProducer, and press Check Server (the Library panel imports finished 3D models).</li>

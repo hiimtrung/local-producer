@@ -1,8 +1,21 @@
 # CHANGELOG — R&D journey of local-producer
 
-A log of experiments, measured numbers and decisions. The source code, images, models and benchmark data have been deleted (see "Cleaned up" at the end), so **the numbers here are the only record**. How to rebuild is under "Verified configuration".
+A log of experiments, measured numbers and decisions. Experiment code, images, models and benchmark data have been deleted, so **the numbers here are the only record**.
+
+**Reading guide.** Entries are newest first and are a historical record: they are not edited when the architecture changes. Everything dated before 2026-11-05 was written for the container-era server (rootless Podman, volumes `local-producer-models` / `local-producer-engines`, data in `~/.local-producer`, `make server-up` through `scripts/run-server.sh`), and before 2026-10-14 for the Lemonade / LocalAI / Vulkan stacks. Paths, commands and `local-producer.md` references in those entries are stale on purpose. The current layout is in `docs/architecture/overview.md` and `docs/reference/storage.md`; the old spec is `docs/archive/local-producer-v2.1.md`.
 
 Machine (unless an entry says otherwise): ThinkPad P14s Gen 4, Ryzen 7 PRO 7840U, Radeon 780M (gfx1103), Ubuntu 26.04, kernel 7.0.0-38, rootless Podman 5.7, Mesa 26.0.8.
+
+Useful commands: count GPU resets with `journalctl -k -b | grep -c -E 'GPU reset begin|ring .* timeout'`; read GTT usage from `/sys/class/drm/card1/device/mem_info_gtt_used`.
+
+---
+
+## 2026-11-05 — Leftovers of the container architecture removed
+
+- Goal: after P1 (native runtime, no containers), delete what only the old architecture used and make the docs match the code.
+- Deleted on the reference machine: the Podman container and image `local-producer-gpu`, the volumes `local-producer-models` and `local-producer-engines` (40.5 GB, so every weight and engine package must be downloaded again with `scripts/lp setup`), all remaining images (`podman images` is empty), `~/.local-producer` (12 GB `experiments/flux3`, 198 MB old Library jobs, old server logs and config), and the tool caches in the repository.
+- Docs and code: log paths now point at `<data root>/server/server.log` (`scripts/lp root` prints the root) instead of `~/.local-producer`; `AGENTS.md` no longer calls the whole architecture unsettled; this changelog gained a reading guide, and the LocalAI "Verified configuration" recipe (an obsolete stack, nothing to rebuild) was removed.
+- Not changed: older entries keep their original wording, including the measurements of the deleted FLUX.3 experiment images.
 
 ---
 
@@ -1896,31 +1909,6 @@ LocalAI side: `Backend process exited unexpectedly … stderr="/backends/rocm-ll
 ## 2026-10-06 — Blender verification in Podman
 
 Details are in `local-producer.md` §3.2 (kept as is). Summary: Blender 4.5.14 and 5.2.2 run `-b --gpu-backend vulkan` in an Ubuntu 26.04 container with no X; they pick `AMD Radeon 780M (RADV PHOENIX)`; EEVEE 1080p/64 samples ~0.6 s/frame on a simple test scene (first frame ~4 s for shader compilation). `xvfb-run` + Vulkan **hangs**. On Blender 5.x write a PNG sequence (`FFMPEG` is no longer valid) and the engine was renamed `BLENDER_EEVEE_NEXT` → `BLENDER_EEVEE`. The doctor check looks for the line `Using vendor … RADV` to rule out `llvmpipe`.
-
----
-
-## Verified configuration (to rebuild if needed)
-
-**LocalAI (rootless Quadlet):** image pinned by digest
-`docker.io/localai/localai@sha256:e9607e90c20278b5b962c47ea7f8a770caaded3c74c1d8c69fbe784fc42fe82a` (v4.11.0, `latest-gpu-hipblas`, built 2026-10-02; if only Vulkan is used, try the `latest-gpu-vulkan` tag, **not verified**). Port `127.0.0.1:8080`, `AddDevice=/dev/dri`, `GroupAdd=keep-groups`, `THREADS=8`, `LOCALAI_MAX_ACTIVE_BACKENDS=2`, `LOCALAI_WATCHDOG_IDLE=true`, `LOCALAI_WATCHDOG_IDLE_TIMEOUT=10m`, volumes `localai-backends:/backends`, `localai-data:/data`, `localai-config:/configuration`, the model directory mounted at `/models`. No `[Install]` section: start/stop manually.
-
-**Model YAML (Vulkan, ran stably):**
-```yaml
-name: planner
-backend: vulkan-llama-cpp
-context_size: 16384
-gpu_layers: 99
-mmap: false
-f16: true
-function: { grammar: { disable: true } }
-known_usecases: [chat]
-options: [use_jinja:true, parallel:1]
-parameters: { model: <file.gguf>, temperature: 0.4, top_k: 20, top_p: 0.95, min_p: 0, repeat_penalty: 1 }
-reasoning: { disable: true }
-template: { use_tokenizer_template: true }
-```
-
-**Counting GPU resets:** `journalctl -k -b | grep -c 'GPU reset begin'`. **Reading GTT usage:** `/sys/class/drm/card1/device/mem_info_gtt_used`.
 
 ---
 

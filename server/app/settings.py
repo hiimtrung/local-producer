@@ -22,9 +22,9 @@ MAX_PROMPT_CHARS = 4000
 
 @dataclass
 class Paths:
-    """Where things live. Defaults match the user layout (~/.local-producer/); tests point them at tmp dirs.
+    """Where things live. Defaults come from the native data root (runtime_env.Layout); tests use tmp dirs.
 
-    models   weights, portable across engines (~/.local-producer/models/)
+    models   weights, portable across engines (<data root>/models/)
     engines  installed engine packages: GPU runtime libraries and CLI builds for one platform
     library  job results and uploads, what the Library shows
     data     server state: runtime config and logs"""

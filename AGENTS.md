@@ -1,6 +1,6 @@
 # AGENTS.md — Working conventions for the local-producer project
 
-The project produces science/engineering explainer videos from Obsidian notes, in the language requested for each video (Vietnamese is the first and so far only tested language; TTS, subtitles and on-screen text must not be hard-wired to one language). It is in the **R&D phase**: the architecture is not settled (see `CHANGELOG.md`, the first 2026-10-06 entry). The archived spec `docs/archive/local-producer-v2.1.md` (v2.1) describes the old state; its local-LLM and Blender A-roll parts are outdated.
+The project produces science/engineering explainer videos from Obsidian notes, in the language requested for each video (Vietnamese is the first and so far only tested language; TTS, subtitles and on-screen text must not be hard-wired to one language). It is in the **R&D phase**: the native runtime (milestone P1) is settled, the video pipeline is not (see `docs/architecture/overview.md` and `CHANGELOG.md`). The archived spec `docs/archive/local-producer-v2.1.md` (v2.1) describes the old state; its local-LLM and Blender A-roll parts are outdated.
 
 ## How to work
 - **Contribution rules:** `CONTRIBUTING.md` (setup with `make dev`, `scripts/lp setup`, `make check` before every change, Conventional Commits, small PRs) and `SECURITY.md` (threat model; never weaken a rule without explicit approval). Only source goes into git; weights, engine binaries, results and logs live in the native data root (`docs/reference/storage.md`).
