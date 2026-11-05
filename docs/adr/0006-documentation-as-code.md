@@ -64,3 +64,11 @@ The documentation is a layered tree under `docs/`, and its integrity is enforced
 
 A second maintained product or a public documentation site, where a generator and a navigation model start paying for
 themselves. Link and header checks stay regardless of the renderer.
+
+## Amendment 2026-11-05 — execution plans
+
+A seventh layer, `plans/`, was added the day this ADR was accepted: one file per phase, holding the task list, the
+interfaces, the measurements and an acceptance checklist. It is deliberately not part of `analysis/` (a plan is not a
+study) and not an ADR (it is not a decision). A plan is deleted, or moved to `analysis/` as a dated record, when its
+phase lands, so nothing in `plans/` describes finished work as if it were current. The header, link, orphan and
+language checks apply unchanged.

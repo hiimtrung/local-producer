@@ -20,6 +20,7 @@ and **analysis** (dated measurement reports). Start with the question you have, 
 | find where data, weights and logs are stored | [`reference/storage.md`](./reference/storage.md) |
 | know why there are no containers, and why a Tauri shell | [`adr/`](./adr/README.md) |
 | see the measurements behind a decision | the two [analysis](./analysis/2026-11-desktop-architecture.md) studies and [`CHANGELOG.md`](../CHANGELOG.md) |
+| know what is being built next, with acceptance criteria | [`plans/`](./plans/README.md) |
 | read a superseded spec for its reasoning | [`archive/`](./archive/local-producer-v2.1.md) |
 
 ## Layers
@@ -32,6 +33,7 @@ and **analysis** (dated measurement reports). Start with the question you have, 
 | Reference | "what are the exact paths, fields, endpoints?" | `reference/` | [`storage.md`](./reference/storage.md) exists; the rest lands with P1 |
 | Decisions | "why this and not that?" | [`adr/`](./adr/README.md) | ADR 0001–0006 exist |
 | Analysis | dated studies, not contracts | `analysis/` | two studies exist |
+| Plans | "what is being built now, and how do we know it is done?" | [`plans/`](./plans/README.md) | P1 is ready for execution |
 | Archive | superseded documents, kept for their reasoning | `archive/` | two files, both marked Superseded |
 
 ### Studies
@@ -40,6 +42,11 @@ and **analysis** (dated measurement reports). Start with the question you have, 
   native on both platforms, shipped as a Tauri app; phases and acceptance criteria.
 - [`analysis/2026-11-performance-bottlenecks.md`](./analysis/2026-11-performance-bottlenecks.md) — ranked GPU and UI
   bottlenecks with the measurements behind them.
+
+### Plans
+
+- [`plans/2026-11-p1-native-runtime.md`](./plans/2026-11-p1-native-runtime.md) — P1: supervisor, `lp`, locks, container
+  removal, CI on both OSes, with the acceptance checklist. This is the file to hand to the executing agent.
 
 ### Archive
 

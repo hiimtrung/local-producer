@@ -10,6 +10,7 @@
 /docs/architecture/         @hiimtrung
 /docs/operations/           @hiimtrung
 /docs/reference/            @hiimtrung
+/docs/plans/                @hiimtrung
 
 # Records that must not be edited without the maintainer.
 /CHANGELOG.md               @hiimtrung

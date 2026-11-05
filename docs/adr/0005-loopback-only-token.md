@@ -2,7 +2,7 @@
 
 | | |
 | :--- | :--- |
-| **Status** | Accepted — implementation starts in P1 |
+| **Status** | Accepted — supervisor and `runtime.json` land in P1; token, `/v1/session` and the add-on discovery in P3/P4 (see the amendment below) |
 | **Owner** | maintainer |
 | **Last verified** | 2026-11-05 |
 | **Date** | 2026-11-05 |
@@ -59,3 +59,12 @@ We bind to `127.0.0.1` only and turn authentication on by default.
 
 A concrete request to drive the server from another machine (a render box, or team use). That request reopens the
 transport question as a whole — interface selection, TLS, and token lifecycle — rather than loosening this decision.
+
+## Amendment 2026-11-05 — phasing
+
+The roadmap in [`../analysis/2026-11-desktop-architecture.md`](../analysis/2026-11-desktop-architecture.md) splits
+this decision across phases, so the status line was corrected: P1 adds the supervisor and `runtime.json` (url, port,
+pid, version) but leaves `SERVER_TOKEN` optional, because the web UI and the Blender add-on cannot obtain a
+generated token until `/v1/session` and the add-on discovery exist. P3/P4 turn the token on by default, add the
+bootstrap cookie and the `Origin` check, and make the add-on read `runtime.json`. No part of the decision is dropped;
+only its landing order is stated.
