@@ -17,7 +17,12 @@ and **analysis** (dated measurement reports). Start with the question you have, 
 | :--- | :--- |
 | understand what the project is and what works today | [`README.md`](../README.md) |
 | know the rules for changing the repository | [`AGENTS.md`](../AGENTS.md), [`CONTRIBUTING.md`](../CONTRIBUTING.md) |
+| set up your development environment | [`development/setup.md`](./development/setup.md) |
+| run the server headlessly via CLI | [`operations/run-headless.md`](./operations/run-headless.md) |
 | find where data, weights and logs are stored | [`reference/storage.md`](./reference/storage.md) |
+| understand the native runtime architecture | [`architecture/overview.md`](./architecture/overview.md) |
+| inspect the native security model | [`architecture/security-model.md`](./architecture/security-model.md) |
+| troubleshoot runtime and GPU problems | [`operations/troubleshooting.md`](./operations/troubleshooting.md) |
 | know why there are no containers, and why a Tauri shell | [`adr/`](./adr/README.md) |
 | see the measurements behind a decision | the two [analysis](./analysis/2026-11-desktop-architecture.md) studies and [`CHANGELOG.md`](../CHANGELOG.md) |
 | know what is being built next, with acceptance criteria | [`plans/`](./plans/README.md) |
@@ -27,14 +32,37 @@ and **analysis** (dated measurement reports). Start with the question you have, 
 
 | Layer | Answers | Directory | State |
 | :--- | :--- | :--- | :--- |
-| Architecture | "why is it built this way?" | `architecture/` | planned — lands with P1 |
-| Operations | "how do I install / run / fix it?" | `operations/` | planned — parts land with P1, the rest with P5 |
-| Development | "how do I work on it?" | `development/` | planned — lands with P1 |
-| Reference | "what are the exact paths, fields, endpoints?" | `reference/` | [`storage.md`](./reference/storage.md) exists; the rest lands with P1 |
+| Architecture | "why is it built this way?" | `architecture/` | active — core pages landed with P1 |
+| Operations | "how do I install / run / fix it?" | `operations/` | active — CLI and troubleshooting landed with P1 |
+| Development | "how do I work on it?" | `development/` | active — setup and testing landed with P1 |
+| Reference | "what are the exact paths, fields, endpoints?" | `reference/` | active — storage, config, and glossary landed with P1 |
 | Decisions | "why this and not that?" | [`adr/`](./adr/README.md) | ADR 0001–0006 exist |
 | Analysis | dated studies, not contracts | `analysis/` | two studies exist |
 | Plans | "what is being built now, and how do we know it is done?" | [`plans/`](./plans/README.md) | P1 is ready for execution |
 | Archive | superseded documents, kept for their reasoning | `archive/` | two files, both marked Superseded |
+
+### Architecture
+
+- [`architecture/overview.md`](./architecture/overview.md) — three tiers, what runs where, and what P1 changed.
+- [`architecture/runtime-contract.md`](./architecture/runtime-contract.md) — data root per OS, layout tree, child environment table, ports, and `runtime.json`.
+- [`architecture/security-model.md`](./architecture/security-model.md) — loopback invariant, token status, engine sandbox, and residual risk.
+
+### Operations
+
+- [`operations/run-headless.md`](./operations/run-headless.md) — CLI usage (`lp setup/up/status/logs/down/doctor`), `LP_HOME`, and systemd unit.
+- [`operations/troubleshooting.md`](./operations/troubleshooting.md) — engine blocked, port conflicts, web build, venv, and GPU resets.
+- [`operations/backup-and-migrate.md`](./operations/backup-and-migrate.md) — directory tree, safe deletions, `LP_HOME`, and migration paths.
+
+### Development
+
+- [`development/setup.md`](./development/setup.md) — clone, `make dev`, `make check`, `lp setup`, and the two virtual environments.
+- [`development/testing.md`](./development/testing.md) — pytest layout, fixtures, what needs a GPU, CI matrix, and check gates.
+
+### Reference
+
+- [`reference/storage.md`](./reference/storage.md) — native filesystem storage layout, weights and engine sources.
+- [`reference/configuration.md`](./reference/configuration.md) — `RuntimeConfig` parameters, validation bounds, and environment variables.
+- [`reference/glossary.md`](./reference/glossary.md) — definitions of key project terms.
 
 ### Studies
 
@@ -59,10 +87,10 @@ and **analysis** (dated measurement reports). Start with the question you have, 
 
 Listed so that new work has a canonical home; they are **not links**, because the files do not exist yet.
 
-- `architecture/`: `overview`, `runtime-contract`, `engines`, `pipelines`, `data-model`, `security-model`
-- `operations/`: `install-desktop`, `run-headless`, `troubleshooting`, `backup-and-migrate`, `release-runbook`
-- `development/`: `setup`, `testing`, `adding-a-pipeline`, `adding-a-page`
-- `reference/`: `api`, `configuration`, `catalog`, `glossary`
+- `architecture/`: `engines`, `pipelines`, `data-model`
+- `operations/`: `install-desktop`, `release-runbook`
+- `development/`: `adding-a-pipeline`, `adding-a-page`
+- `reference/`: `api`, `catalog`
 
 The target layout, the page standard and the migration order are described in
 [`analysis/2026-11-desktop-architecture.md`](./analysis/2026-11-desktop-architecture.md) and its companion

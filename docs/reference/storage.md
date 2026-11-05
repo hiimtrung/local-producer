@@ -1,57 +1,59 @@
-# Where the server keeps its data, and where each download comes from
+# Native filesystem storage layout
 
 | | |
 | :--- | :--- |
-| **Status** | Active — still describes the container-era layout; rewritten with P1 (native runtime) |
+| **Status** | Active |
 | **Owner** | maintainer |
 | **Last verified** | 2026-11-05 |
-| **Applies to** | the runtime as it exists on `main` before P1 lands |
+| **Applies to** | all platforms |
 
-Nothing here is committed: this directory only holds this file (the old `models/` tree moved out on 2026-10-15).
-The locations are set in `scripts/lp-env.sh` (shared by `scripts/run-server.sh` and the Makefile), each overridable:
+This document defines where local-producer stores runtime data, weights, engine packages, logs, and outputs on the host filesystem, as well as the exact upstream sources and verification hashes for downloaded assets.
 
-| What | Where | In the container |
+## The native data root
+
+All mutable runtime state is contained within a single platform data root resolved by `app.runtime_env.data_root()`:
+
+- **macOS:** `~/Library/Application Support/local-producer`
+- **Linux:** `${XDG_DATA_HOME:-~/.local/share}/local-producer`
+- **Override:** `$LP_HOME` (highest precedence across all platforms)
+
+The data root is structured into five dedicated subdirectories:
+
+| Directory | Environment variable | Purpose |
 | :--- | :--- | :--- |
-| Weights (portable across engines) | Podman volume `local-producer-models` | `/models` (`MODELS_DIR`) |
-| Engine packages: GPU runtime + CLI builds for this machine | Podman volume `local-producer-engines` | `/engines` (`ENGINES_DIR`) |
-| Library: job results (`jobs/<id>/`) and uploads | `~/.local-producer/library` | `/library` (`LIBRARY_DIR`) |
-| Server state: `config.json`, `server.log` (jobs, CLI output, GPU memory per job), `container.log` | `~/.local-producer/server` | `/data` (`DATA_DIR`) |
+| `models/` | `MODELS_DIR` | Shared model weights (`flux2/`, `trellis2/`, `rembg/`) and user-added models (`user/<id>/`) |
+| `engines/` | `ENGINES_DIR` | Unpacked native engine packages (`<package>/<version>/`) and `active.json` |
+| `library/` | `LIBRARY_DIR` | Job outputs (`jobs/<id>/`) and uploaded source images (`uploads/<id>/`) |
+| `server/` | `DATA_DIR` | Configuration (`config.json`), runtime discovery (`runtime.json`), and logs (mode `0700`) |
+| `venv/` | (internal) | Runtime Python 3.12 virtual environment initialized by `scripts/lp setup` |
 
-**macOS (Apple silicon)** runs the server natively (`scripts/run-native.sh`; containers cannot reach Metal): weights and
-engine packages are the plain directories `~/.local-producer/models` and `~/.local-producer/engines` (`MODELS_DIR`,
-`ENGINES_DIR`), the server's Python environment is `~/.local-producer/venv` (from `server/requirements-macos.txt`), and
-the startup / matting log is `~/.local-producer/server/native.log` instead of `container.log`. Deleting a directory
-deletes its contents; nothing else changes.
+## Populating assets
 
-On Linux, volumes live in `~/.local/share/containers/storage/volumes/<name>/_data` (`podman volume inspect`), on the same disk as
-the home directory here, outside every image layer: rebuilding the image keeps them; `podman volume rm` or
-`podman system prune --volumes` deletes them.
+Assets are downloaded and managed via:
+- **Web UI:** **Server > Engines** (installs or switches platform engine packages) and **Server > Models** (installs required shared components and recommended models).
+- **Blender add-on:** The "Download Models" button.
+- **Command line:** `scripts/lp exec make setup` (installs the platform engine runner, followed by shared components and recommended models).
 
-**Fill them** with the web UI (Server > Engines, Server > Models), the add-on's "Download Models" button, or
-`make setup` (= `make engines` + `make models`). `server/app/model_setup.py` and `server/app/engines/registry.py`
-fetch every entry of `server/catalog/models.json` / `server/catalog/engines.json` (pinned URL + size + SHA256), verify
-and install it; the Qwen3-4B text encoder is downloaded in bf16 and converted to q8_0 with the loaded engine's
-`sd-cli`. The catalog's items are only the **shared components** each model family runs with; the **main models**
-(a FLUX.2-klein diffusion model, a set of TRELLIS.2 flow models) are options added on the Models page
-(`server/app/model_store.py`); the setup adds the catalog's recommended one for a family that has none.
-`make models-status` / `make models-verify` / `make engines-status` check what is installed. The catalogs are
-authoritative; the tables document the sources.
+`server/app/model_setup.py` and `server/app/engines/registry.py` fetch entries pinned by exact URL, file size, and SHA256 checksum in `server/catalog/models.json` and `server/catalog/engines.json`.
 
-## Weights (models volume)
+## Weights (`models/`)
+
+The `models/` directory stores shared model components and user-installed diffusion and flow weights:
 
 | Path | Contents | Source |
 | :--- | :--- | :--- |
-| `trellis2/` | TRELLIS.2 shared components, f16 GGUF (2.65 GB): `dinov3` (image encoder), `ss_dec`, `shape_dec`, `tex_dec` (decoders) | Hugging Face `ilintar/trellis2-gguf` rev `a57397bd3d351599d9729fc144b3f87c3f87d65b`, the files at the repo root |
-| `flux2/` | FLUX.2-klein shared components: `qwen_3_4b-q8_0.gguf` (text encoder, 4.3 GB), `flux2-vae.safetensors` (bf16, 336 MB) | `Comfy-Org/vae-text-encorder-for-flux-klein-4b` rev `5f526678002e43af5551dadb73ce2e8c91b43afe` `split_files/text_encoders/qwen_3_4b.safetensors` and `split_files/vae/flux2-vae.safetensors`. The text encoder is converted once to q8_0 (CPU, ~5 s), then the bf16 original is deleted: `sd-cli -M convert -m <file>.safetensors --type q8_0 -o flux2/<name>-q8_0.gguf` (done by `model_setup.py`) |
-| `user/<id>/` | main models: a FLUX.2-klein diffusion model file, or TRELLIS.2 flow models (`ss_flow`, `shape_flow_512`, `tex_flow_512`, optional `shape_flow_1024`, `tex_flow_1024`), with `model.json` and `sha256.json`; a TRELLIS.2 run links them with the components into one temporary directory | added on the Models page: the catalog's suggestions (e.g. `leejet/FLUX.2-klein-4B-GGUF`, the `q8`/`q4` folders or the root of `ilintar/trellis2-gguf`), any Hugging Face file / folder, http(s) link or upload |
-| `rembg/` | rembg ONNX models (`isnet-general-use`, ...) | downloaded by the matting server on first use |
-| `.cache/` | archives and bf16 originals while they download / convert (deleted afterwards; `.part` files resume an interrupted download) | `server/app/model_setup.py` |
+| `trellis2/` | TRELLIS.2 shared components, f16 GGUF (2.65 GB): `dinov3` (image encoder), `ss_dec`, `shape_dec`, `tex_dec` (decoders) | Hugging Face `ilintar/trellis2-gguf` rev `a57397bd3d351599d9729fc144b3f87c3f87d65b`, files at repo root |
+| `flux2/` | FLUX.2-klein shared components: `qwen_3_4b-q8_0.gguf` (text encoder, 4.3 GB), `flux2-vae.safetensors` (bf16, 336 MB) | `Comfy-Org/vae-text-encorder-for-flux-klein-4b` rev `5f526678002e43af5551dadb73ce2e8c91b43afe` (`split_files/text_encoders/qwen_3_4b.safetensors` and `split_files/vae/flux2-vae.safetensors`). Text encoder is converted once to q8_0 via `sd-cli -M convert` and bf16 source is deleted. |
+| `user/<id>/` | User-added main models: FLUX.2-klein diffusion weights or TRELLIS.2 flow models (`ss_flow`, `shape_flow_512`, `tex_flow_512`, optional 1024 flows) with `model.json` and `sha256.json`. | Added via the web UI Models page from catalog recommendations, Hugging Face repositories, direct URLs, or manual uploads. |
+| `rembg/` | Background removal ONNX models (`isnet-general-use`). | Downloaded automatically by `matte_server.py` on first invocation into `$U2NET_HOME`. |
+| `.cache/` | Temporary staging files and downloads in progress (`.part` files). | Deleted automatically following successful download and checksum verification. |
 
-## Engine packages (engines volume)
+## Engine packages (`engines/`)
 
-Installed as `<id>/<version>/` with the catalog entry in `package.json`; `active.json` names the one to load at start.
+Engine packages are unpacked under `engines/<package_id>/<version>/` with metadata stored in `package.json`.
+The currently selected engine is recorded in `engines/active.json`.
 
 | Package | Contents | Source |
 | :--- | :--- | :--- |
-| `rocm-gfx1103` | `sdcpp/`: stable-diffusion.cpp `sd-cli` + libs, HIP build with gfx1100-1103 code objects; `trellis/`: trellis.cpp `trellis-cli` + libs, HIP build with gfx1103 code objects; `rocm/`: AMD TheRock ROCm 10.1.0 runtime (HIP, hipBLAS, rocBLAS, LLVM OpenMP) | GitHub `leejet/stable-diffusion.cpp` release `master-964-1d0a58a` (`...-rocm-10.1.0.zip`, contents of `build/bin/`; the zip stores the `.so` symlinks as small text files, recreated as symlinks); GitHub `pwilkin/trellis.cpp` release `v0.8.1` (`trellis-rocm-linux-x64.tar.gz`); `stable.repo.amd.com/rocm/whl-next` wheels `rocm-sdk-core`, `rocm-sdk-libraries`, `rocm-sdk-device-gfx1103` 10.1.0 (unpacked, not pip-installed) |
-| `metal-arm64` | `sdcpp/`: stable-diffusion.cpp `sd-cli` + `libstable-diffusion.dylib` (universal binary, Metal, finds its dylib through `@executable_path`); `trellis/`: `trellis-cli` built on this Mac from source (ggml Metal with the shaders embedded, `GGML_NATIVE` = tuned for this CPU, static, no WebP; the sources are deleted after the build) | GitHub `leejet/stable-diffusion.cpp` release `master-964-1d0a58a` (`...-bin-Darwin-macOS-26.6.2-arm64.zip`, the same version as the ROCm package); trellis.cpp has no macOS release, so the GitHub source archives of `pwilkin/trellis.cpp` at the `v0.8.1` commit `c0bed38` and of its `thirdparty/ggml` submodule `pwilkin/ggml` at `f8697b3` are pinned (size + SHA256, identical over two downloads on 2026-11-03; GitHub-generated archives are not guaranteed byte-stable, a mismatch fails the install safely), built with CMake (`server/app/engines/build.py`, needs CMake and the Xcode Command Line Tools; full output in `~/.local-producer/server/engine-build.log`) |
+| `rocm-gfx1103` | `sdcpp/`: `sd-cli` and shared libraries built for AMD HIP (gfx1100-1103 code objects); `trellis/`: `trellis-cli` and libraries built for HIP gfx1103; `rocm/`: AMD TheRock ROCm 10.1.0 runtime libraries (HIP, hipBLAS, rocBLAS, LLVM OpenMP). | GitHub `leejet/stable-diffusion.cpp` release `master-964-1d0a58a` (`...-rocm-10.1.0.zip`); GitHub `pwilkin/trellis.cpp` release `v0.8.1` (`trellis-rocm-linux-x64.tar.gz`); `stable.repo.amd.com/rocm/whl-next` wheels (`rocm-sdk-core`, `rocm-sdk-libraries`, `rocm-sdk-device-gfx1103` 10.1.0, unpacked). |
+| `metal-arm64` | `sdcpp/`: `sd-cli` and `libstable-diffusion.dylib` (universal binary with Apple silicon Metal support); `trellis/`: `trellis-cli` built locally from pinned source with native Metal ggml acceleration. | GitHub `leejet/stable-diffusion.cpp` release `master-964-1d0a58a` (`...-bin-Darwin-macOS-26.6.2-arm64.zip`); `pwilkin/trellis.cpp` pinned at `v0.8.1` commit `c0bed38` and `pwilkin/ggml` submodule at `f8697b3`, compiled locally via `server/app/engines/build.py`. |
