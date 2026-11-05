@@ -213,3 +213,34 @@ def test_lp_shell_root_matches_layout(tmp_path: Path) -> None:
         assert data_root() == target_root
     finally:
         del os.environ["LP_HOME"]
+
+
+def test_cmd_status_stale_pid_removes_runtime_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    target_root = tmp_path / "lp_home"
+    target_root.mkdir()
+    server_dir = target_root / "server"
+    server_dir.mkdir()
+    runtime_json = server_dir / "runtime.json"
+    # Choose an impossible / dead PID
+    runtime_json.write_text(
+        json.dumps(
+            {
+                "url": "http://127.0.0.1:13305",
+                "port": 13305,
+                "pid": 9999999,
+                "version": "0.3.0",
+                "started": "2026-11-05T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("LP_HOME", str(target_root))
+    lp = load_lp_module()
+    code = lp.main(["status"])
+    assert code == 1
+    out = capsys.readouterr().out
+    assert "stale pid 9999999" in out
+    assert not runtime_json.exists()

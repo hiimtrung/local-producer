@@ -408,7 +408,8 @@ def cmd_status(argv: list[str]) -> int:
     pid = runtime_data["pid"]
     url = runtime_data["url"]
     if not is_pid_alive(pid):
-        print("not running")
+        print(f"stale pid {pid}; not running")
+        runtime_json.unlink(missing_ok=True)
         return 1
 
     if not is_healthy(f"{url}/health", timeout_s=2.0):
