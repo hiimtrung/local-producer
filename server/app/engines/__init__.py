@@ -9,6 +9,7 @@ the server runs; every job starts its CLI from the loaded package, so nothing ne
   host.py      what this machine is (OS, CPU architecture, GPU and its compute stack)
   backends.py  per-stack code that ships with the server: preflight checks, GPU memory probe
   catalog.py   the pinned package catalog
+  sandbox.py   isolate engine CLIs from the network (sandbox-exec on macOS, bwrap on Linux)
   registry.py  install, load, reload, remove; runner(name) for the pipelines
 
 This module imports nothing on purpose: app.gpu imports backends, and registry imports app.gpu.

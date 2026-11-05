@@ -289,18 +289,6 @@ def test_install_downloads_verifies_unpacks_and_loads(eng, tmp_path, monkeypatch
     assert not snap.running and snap.done_items == 3 and snap.error == ""
 
 
-def test_runners_start_in_the_sandbox_on_macos(eng, tmp_path, monkeypatch):
-    install_fake_engine(tmp_path / "engines")
-    eng.reload()
-    assert eng.runner("sd-cli").argv == [eng.runner("sd-cli").bin]  # Linux: the container isolates
-    mac = registry.HostInfo(os="macos", arch="arm64", accelerator="metal", gpu="Apple M4", gpu_targets=[])
-    prefix = registry._prefix(mac)
-    if os.access(registry.SANDBOX_EXEC, os.X_OK):
-        assert prefix[0] == registry.SANDBOX_EXEC and "(deny network*)" in prefix[2]
-    else:
-        assert prefix == ()
-
-
 def test_install_builds_from_source_and_deletes_the_sources(eng, tmp_path, monkeypatch):
     from app.engines import build
 

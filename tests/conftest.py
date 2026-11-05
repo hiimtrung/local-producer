@@ -86,12 +86,14 @@ def install_fake_models(models_dir):
 @pytest.fixture
 def fake_host(monkeypatch):
     """This machine as the ROCm package expects it, with the preflight passing."""
-    from app.engines import registry
+    from app.engines import registry, sandbox
     from app.engines.host import HostInfo
 
     host = HostInfo(os="linux", arch="x86_64", accelerator="rocm", gpu="AMD gfx1103", gpu_targets=["gfx1103"])
     monkeypatch.setattr(registry, "detect", lambda: host)
     monkeypatch.setattr(registry.backends, "preflight", lambda accelerator: "")
+    monkeypatch.setattr(sandbox, "problem", lambda h: "")
+    monkeypatch.setattr(sandbox, "prefix", lambda h: ())
     return host
 
 
