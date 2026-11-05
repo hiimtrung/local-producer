@@ -1,7 +1,7 @@
 # Common tasks. `make help` lists them. Python tooling runs through uv (https://docs.astral.sh/uv/).
 SHELL := /bin/bash
 
-.PHONY: help dev lint typecheck api-types web-install web-build web-tokens web-dev format test check docs-check lock-check addon server-build server-up server-down setup engines engines-status models models-status models-verify smoke
+.PHONY: help dev lint typecheck api-types web-install web-build web-tokens web-dev format test check docs-check lock-check check-removal addon server-build server-up server-down setup engines engines-status models models-status models-verify smoke
 
 RUN_TOOL = scripts/lp exec
 
@@ -51,7 +51,11 @@ docs-check:  ## documentation tree: header tables, orphans, links and anchors, d
 lock-check:  ## check that server lock files match requirements.in and agree across platforms
 	scripts/lock-requirements.sh --check
 
-check: lint docs-check typecheck test lock-check web-build  ## everything CI checks
+check-removal:  ## verify container files and references are removed
+	@! git ls-files | grep -E 'Containerfile|\.containerignore|entrypoint\.sh|run-server\.sh|run-native\.sh|lp-env\.sh|\.hadolint\.yaml'
+	@! git grep -n -E '\b(podman|docker)\b' -- . ':!CHANGELOG.md' ':!docs/analysis' ':!docs/plans' ':!docs/archive'
+
+check: lint docs-check typecheck test lock-check check-removal web-build  ## everything CI checks
 
 addon:  ## build dist/local_producer.zip
 	blender/build_addon.sh

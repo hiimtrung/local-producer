@@ -467,7 +467,7 @@ export interface Started {
 export interface StorageInfo {
   name: string;
   path: string;
-  /** Where it lives on the host (set by scripts/run-server.sh) */
+  /** Where it lives on the host */
   source: string;
   free: number | null;
 }

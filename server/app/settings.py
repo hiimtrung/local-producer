@@ -22,12 +22,12 @@ MAX_PROMPT_CHARS = 4000
 
 @dataclass
 class Paths:
-    """Where things live. Defaults match the container (scripts/run-server.sh); tests point them at tmp dirs.
+    """Where things live. Defaults match the user layout (~/.local-producer/); tests point them at tmp dirs.
 
-    models   weights, portable across engines (a Podman volume; native runs: any directory)
-    engines  installed engine packages: GPU runtime libraries and CLI builds for one platform (another volume)
-    library  job results and uploads, what the Library shows (a directory on the host disk)
-    data     server state: runtime config and logs (a directory on the host disk, next to the library)"""
+    models   weights, portable across engines (~/.local-producer/models/)
+    engines  installed engine packages: GPU runtime libraries and CLI builds for one platform
+    library  job results and uploads, what the Library shows
+    data     server state: runtime config and logs"""
 
     models: str = field(default_factory=lambda: os.environ.get("MODELS_DIR", str(Layout.resolve().models)))
     engines: str = field(default_factory=lambda: os.environ.get("ENGINES_DIR", str(Layout.resolve().engines)))

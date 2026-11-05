@@ -70,7 +70,7 @@ def thread_count(platform: str | None = None) -> int:
     """Return the physical compute thread count for the platform.
 
     On macOS, queries `hw.perflevel0.physicalcpu` (performance cores) via sysctl.
-    On Linux, queries sched_getaffinity capped at 8 (matching the container baseline).
+    On Linux, queries sched_getaffinity capped at 8 (compute baseline).
     Falls back to `os.cpu_count() or 1`. Never returns <= 0.
     """
     target_platform = platform if platform is not None else sys.platform

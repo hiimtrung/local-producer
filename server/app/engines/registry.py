@@ -126,7 +126,7 @@ class UpdateReport(ApiModel):
 class StorageInfo(ApiModel):
     name: str
     path: str
-    source: str = Field(description="Where it lives on the host (set by scripts/run-server.sh)")
+    source: str = Field(description="Where it lives on the host")
     free: int | None
 
 

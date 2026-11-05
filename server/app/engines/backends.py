@@ -33,9 +33,8 @@ def preflight(accelerator: Accelerator) -> str:
             )
         return ""
     if accelerator == "metal":
-        # Containers cannot reach Metal: a Metal package only runs in the native server on Apple silicon.
         if platform.system() != "Darwin" or platform.machine() != "arm64":
-            return "Metal engines run only in the native server on Apple silicon (scripts/run-server.sh on macOS)"
+            return "Metal engines run only on Apple silicon (macOS arm64)"
         return ""
     return f"{accelerator} engines are not supported by this server version yet"
 
@@ -53,7 +52,7 @@ def apple_gpu_memory(ioreg: str = IOREG) -> int | None:
 
 
 def gpu_memory() -> int | None:
-    """GPU memory in use on the whole machine (not only this container), or None: amdgpu GTT + VRAM on Linux, the
+    """GPU memory in use on the whole machine (not only this process), or None: amdgpu GTT + VRAM on Linux, the
     Apple GPU's unified memory on macOS."""
     if platform.system() == "Darwin":
         return apple_gpu_memory()

@@ -111,7 +111,7 @@ async def matte(request: Request, model: str = "isnet-general-use", fill_holes: 
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--host", default="0.0.0.0")
+    p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8083)
     p.add_argument("--preload", default="isnet-general-use")
     args = p.parse_args()
