@@ -50,7 +50,7 @@ USAGE = """usage: lp <command> [options]
 
 Commands:
   root                 Print data root path
-  setup [--migrate]    Set up virtualenv, requirements, and web UI
+  setup               Set up virtualenv, requirements, and web UI
   up [--foreground] [--no-matte]
                        Start background or foreground supervisor
   down                 Stop supervisor and workers
@@ -160,25 +160,9 @@ def cmd_root(argv: list[str]) -> int:
 
 def cmd_setup(argv: list[str]) -> int:
     """Set up the Python virtual environment and build the web UI."""
-    migrate = False
-    for arg in argv:
-        if arg == "--migrate":
-            migrate = True
-        else:
-            sys.stderr.write(f"Invalid argument for setup: {arg}\n{USAGE}")
-            return 2
-
-    if migrate:
-        old_path = Path("~/.local-producer").expanduser().resolve()
-        new_path = Layout.resolve().root
-        if new_path.exists() and any(new_path.iterdir()):
-            sys.stderr.write(f"Migration refused: destination {new_path} already exists and is not empty\n")
-            return 1
-        if old_path.exists() and old_path != new_path:
-            if new_path.exists() and not any(new_path.iterdir()):
-                new_path.rmdir()
-            print(f"mv {old_path} {new_path}")
-            shutil.move(str(old_path), str(new_path))
+    if argv:
+        sys.stderr.write(f"Invalid argument for setup: {argv[0]}\n{USAGE}")
+        return 2
 
     if shutil.which("uv") is None:
         sys.stderr.write("lp setup needs 'uv'; install it from https://docs.astral.sh/uv/\n")
@@ -186,12 +170,8 @@ def cmd_setup(argv: list[str]) -> int:
 
     if sys.platform == "darwin":
         lock_file = REPO_ROOT / "server" / "requirements.macos.txt"
-        if not lock_file.is_file():
-            lock_file = REPO_ROOT / "server" / "requirements-macos.txt"
     else:
         lock_file = REPO_ROOT / "server" / "requirements.linux.txt"
-        if not lock_file.is_file():
-            lock_file = REPO_ROOT / "server" / "requirements.txt"
 
     if not lock_file.is_file():
         sys.stderr.write(f"Lock file not found: {lock_file}\n")

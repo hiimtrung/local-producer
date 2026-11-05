@@ -37,14 +37,6 @@ This command:
 - Populates the runtime virtual environment at `<data_root>/venv` using `uv` from platform locks (`requirements.macos.txt` or `requirements.linux.txt`).
 - Builds the web frontend in `web/dist` if not already compiled.
 
-To migrate an older installation from `~/.local-producer`, use:
-
-```bash
-scripts/lp setup --migrate
-```
-
-See [Backup and data migration](backup-and-migrate.md) for details on data migration.
-
 ### 2. Starting services: `lp up`
 
 Launch the server stack in the background:

@@ -7,8 +7,7 @@
 | **Last verified** | 2026-11-05 |
 | **Applies to** | all platforms |
 
-This guide covers directory contents, backup strategies, safe cleanup practices, and procedures for migrating
-data from previous layouts to the native runtime data root.
+This guide covers directory contents, backup strategies, safe cleanup practices, and moving the data root.
 
 ## Runtime directory structure
 
@@ -80,53 +79,4 @@ To move the data root to another disk or mount point:
 4. Verify resolution:
    ```bash
    scripts/lp root
-   ```
-
-## Migration from legacy `~/.local-producer`
-
-Previous versions stored runtime assets under `~/.local-producer`.
-To migrate this tree to the standard native data root:
-
-```bash
-scripts/lp setup --migrate
-```
-
-Requirements and behavior:
-- The destination data root must not already exist (or must be empty). If destination files exist, `--migrate` refuses to run to prevent accidental overwrites.
-- The command moves the existing `~/.local-producer` directory into the new platform location, preserving file ownership and permissions.
-- The runtime virtual environment is automatically created or refreshed in the new destination.
-
-## Migration from legacy container volumes on Linux
-
-If upgrading from an earlier container-based installation on Linux, models and engine packages previously lived inside named storage volumes.
-The underlying files are located on the host disk at:
-
-```bash
-~/.local/share/containers/storage/volumes/<volume_name>/_data
-```
-
-To migrate these weights into the native data root:
-
-1. Locate the volume paths:
-   ```bash
-   MODELS_SRC="$HOME/.local/share/containers/storage/volumes/local-producer-models/_data"
-   ENGINES_SRC="$HOME/.local/share/containers/storage/volumes/local-producer-engines/_data"
-   ```
-2. Initialize the native data root:
-   ```bash
-   scripts/lp setup
-   ```
-3. Copy the weights and packages into the native tree:
-   ```bash
-   DEST=$(scripts/lp root)
-   cp -a "$MODELS_SRC"/* "$DEST/models/"
-   cp -a "$ENGINES_SRC"/* "$DEST/engines/"
-   ```
-4. Verify disk sizes match:
-   ```bash
-   du -sh "$MODELS_SRC" "$DEST/models"
-   ```
-5. Run diagnostics:
-   ```bash
-   scripts/lp doctor
    ```

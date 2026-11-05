@@ -110,7 +110,7 @@ The `scripts/lp` executable provides management commands:
 | Command | Action |
 | :--- | :--- |
 | `scripts/lp root` | Print the resolved data root directory |
-| `scripts/lp setup [--migrate]` | Create layout, initialize runtime venv, and build web assets |
+| `scripts/lp setup` | Create layout, initialize runtime venv, and build web assets |
 | `scripts/lp up [--foreground] [--no-matte]` | Launch the background or foreground supervisor |
 | `scripts/lp down` | Gracefully terminate the running supervisor and workers |
 | `scripts/lp status` | Report process health, active port, version, and loaded engine |
