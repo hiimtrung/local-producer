@@ -1,8 +1,12 @@
 # LOCAL PRODUCER — SPEC PROPOSAL v3: GATED, TEMPLATE-DRIVEN PIPELINE
 
+> **Archived 2026-11-05.** A proposal that was never adopted. Current decisions live in the
+> [ADR index](../adr/README.md). Kept as the record of the "gates instead of model quality" reasoning and its
+> measurements.
+
 | | |
 | :--- | :--- |
-| **Status** | **Proposal, written to be compared later with other proposals.** Nothing here has been built or measured unless stated. It does not replace `local-producer.md` (v2.1, legacy). |
+| **Status** | Superseded — archived, never adopted |
 | **Date** | 2026-10-07 |
 | **Basis** | Measurements in `CHANGELOG.md` (local 35B-A3B: first-try Manim render 3/8, ≤3 attempts 4–5/8, duration within ±20% only 2–3/8; GPU instability on ROCm). |
 | **Machine** | Ryzen 7 PRO 7840U, Radeon 780M, 60 GiB RAM, rootless Podman. |

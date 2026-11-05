@@ -1,5 +1,12 @@
 # Where the server keeps its data, and where each download comes from
 
+| | |
+| :--- | :--- |
+| **Status** | Active — still describes the container-era layout; rewritten with P1 (native runtime) |
+| **Owner** | maintainer |
+| **Last verified** | 2026-11-05 |
+| **Applies to** | the runtime as it exists on `main` before P1 lands |
+
 Nothing here is committed: this directory only holds this file (the old `models/` tree moved out on 2026-10-15).
 The locations are set in `scripts/lp-env.sh` (shared by `scripts/run-server.sh` and the Makefile), each overridable:
 
