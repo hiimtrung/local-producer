@@ -2,8 +2,7 @@
 FLUX.2 + TRELLIS.2 on the local GPU server, and import the 3D models already in the server's Library.
 
 The server is local-producer's GPU server (scripts/lp: FLUX.2 and TRELLIS.2 on ROCm or Metal, one process per
-job) on http://127.0.0.1:13305 (POST /v1/3d/generations; the request format follows AMD Lemonade's API, which the
-project used before 2026-10-14).
+job) on http://127.0.0.1:13305 (the job API: POST /v1/jobs, GET /v1/jobs/<id>).
 
 Server setup: the "Check Server" button shows whether the shared components and a model of each kind are installed;
 "Download Models" makes the server fetch what is missing (SHA256-verified, POST /v1/setup/download: the components
@@ -17,13 +16,12 @@ Renamed from "TRELLIS.2 Image to Textured Mesh" (id trellis_addon) in 0.14.0: re
 Live progress: set "Server Log" in the add-on preferences to <data root>/server/server.log
 (docs/reference/storage.md); the panel tails it (stage and flow step).
 Background removal: images without an alpha mask are cut out first by the local matting server (rembg on the
-CPU, ~0.6 s); trellis.cpp's own BiRefNet gave wrong masks on the Radeon 780M (Vulkan, pixal3d.cpp fork; not checked
-with the HIP build).
-Prompt mode: text -> image with FLUX.2-klein-4B on the same server (POST /v1/images/generations);
+CPU, ~0.6 s), or by the server when "Server matting" is chosen.
+Prompt mode: text -> image with FLUX.2-klein-4B on the same server (job image.generate);
 the image is previewed in the panel and only turned into a mesh when "Generate Textured Mesh" is pressed.
 Subject: "Character" (full body, arms away from the body) or "Object" (one prop/machine/part, seen slightly from
 above; Make A-pose hidden), Style: "Stylized" or "Realistic"; they choose the framing text appended to the prompt.
-A-pose: "Make A-pose" edits the current image with FLUX.2 (POST /v1/images/edits) so the arms stand away from the
+A-pose: "Make A-pose" edits the current image with FLUX.2 (job image.edit) so the arms stand away from the
 body and the character can be rigged without armpit artefacts (CHANGELOG 2026-10-13); the edited image replaces
 the current one and is previewed.
 Headless use (e.g. over MCP): import this module and call start_image(prompt, ...), start_apose(image_path) or
@@ -52,13 +50,13 @@ from bpy.props import (
 )
 
 from . import client
-from .client import DEFAULT_IMAGE_MODEL, DEFAULT_MODEL, matte_image, request_edit, request_glb, request_image
+from .client import matte_image, request_edit, request_glb, request_image
 from .prompts import APOSE_EDIT, EDIT_BACKGROUND, FRAMING_TAIL, full_prompt, read_progress
 
 bl_info = {
     "name": "LocalProducer",
     "author": "hiimtrung",
-    "version": (0, 15, 0),
+    "version": (0, 16, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > LocalProducer",
     "description": "Generate a PBR-textured mesh from an image or a text prompt (FLUX.2 + TRELLIS.2 on the local "
@@ -69,7 +67,7 @@ bl_info = {
 }
 
 DEFAULT_URL = "http://127.0.0.1:13305"
-# Default input: a cute cat, 3/4 view, grey background (FLUX.2-klein-4B bf16 via Lemonade on 2026-10-13, matted;
+# Default input: a cute cat, 3/4 view, grey background (FLUX.2-klein-4B bf16 on 2026-10-13, matted;
 # regenerate with scripts/make_sample.py),
 # shipped inside the add-on package so every test uses the same image.
 DEFAULT_IMAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "samples", "cat.png")
@@ -332,12 +330,12 @@ def start_image(prompt, seed=None, view=None, api_url=None, subject=None, style=
     text = full_prompt(prompt, props.view, props.framing, props.subject, props.style)
     name = f"{_slug(prompt)}_{props.subject}_{props.view}_s{props.image_seed}_{uuid.uuid4().hex[:6]}.png"
     out = os.path.join(PROMPT_DIR, name)
-    url, model, seed_, steps = props.api_url, props.image_model, props.image_seed, props.image_steps
+    url, seed_, steps = props.api_url, props.image_seed, props.image_steps
     _sync_auth()
 
     def work():
         try:
-            png = request_image(url, text, model, seed_, steps)
+            png = request_image(url, text, seed_, steps)
             os.makedirs(PROMPT_DIR, exist_ok=True)
             with open(out, "wb") as f:
                 f.write(png)
@@ -380,13 +378,13 @@ def start_apose(image_path=None, seed=None, api_url=None):
         return f"cannot read image {image_path}: {e}"
     stem = os.path.splitext(os.path.basename(image_path))[0]
     out = os.path.join(PROMPT_DIR, f"{stem}_apose_s{props.image_seed}_{uuid.uuid4().hex[:6]}.png")
-    url, model, seed_, steps = props.api_url, props.image_model, props.image_seed, props.image_steps
+    url, seed_, steps = props.api_url, props.image_seed, props.image_steps
     _sync_auth()
     prompt = f"{APOSE_EDIT} {FRAMING_TAIL[0].upper()}{FRAMING_TAIL[1:]}"
 
     def work():
         try:
-            result = request_edit(url, png, prompt, model, seed_, steps)
+            result = request_edit(url, png, prompt, seed_, steps)
             os.makedirs(PROMPT_DIR, exist_ok=True)
             with open(out, "wb") as f:
                 f.write(result)
@@ -422,21 +420,10 @@ def start_generation(image_path, seed=None, resolution=None, api_url=None):
         png_path, has_alpha_mask = to_png(image_path)
     except Exception as e:
         return f"cannot read image {image_path}: {e}"
-    mode = props.bg_removal
-    use_matte = mode == "matte" and not has_alpha_mask
-    if mode == "matte":
-        bg_removal = "auto"  # the server keeps a real alpha mask (ours or the image's own)
-    elif mode == "server" and not has_alpha_mask:
-        bg_removal = "birefnet"  # an opaque PNG would otherwise be taken as already matted
-    else:
-        bg_removal = "auto" if mode == "server" else mode
-    params = dict(
-        model=props.model,
-        seed=props.seed,
-        resolution=int(props.resolution),
-        bg_removal=bg_removal,
-        steps=props.mesh_steps,
-    )
+    use_matte = props.bg_removal == "matte" and not has_alpha_mask
+    # "matte": the add-on cuts the image out itself (or keeps its own alpha mask); "server": the server's rembg does
+    matting = "auto" if props.bg_removal == "server" else "none"
+    params = dict(seed=props.seed, resolution=int(props.resolution), matting=matting, steps=props.mesh_steps)
     url, matte_url, matte_model = props.api_url, props.matte_url, props.matte_model
     _sync_auth()
 
@@ -678,14 +665,12 @@ class LocalProducerProps(bpy.types.PropertyGroup):
     mesh_steps: IntProperty(
         name="Mesh Steps", default=8, min=2, max=16, description="TRELLIS.2 flow steps per stage (8 = default)"
     )
-    image_model: StringProperty(name="Image Model", default=DEFAULT_IMAGE_MODEL)
     prompt_image: StringProperty(
         name="Prompt Image",
         subtype="FILE_PATH",
         default="",
         description="The last image generated from the prompt; used for the mesh",
     )
-    model: StringProperty(name="Model", default=DEFAULT_MODEL)
     image_path: StringProperty(
         name="Image",
         subtype="FILE_PATH",
@@ -715,11 +700,9 @@ class LocalProducerProps(bpy.types.PropertyGroup):
             ),
             (
                 "server",
-                "Server BiRefNet",
-                "trellis.cpp's BiRefNet (gave wrong masks on the Radeon 780M in the "
-                "Vulkan pixal3d.cpp fork; not checked with the HIP build)",
+                "Server matting",
+                "The server removes the background with rembg unless the image already has transparency",
             ),
-            ("threshold", "Threshold", "Server-side simple keyer for plain white backgrounds"),
         ],
         default="matte",
     )
@@ -866,8 +849,6 @@ class LP_PT_panel(bpy.types.Panel):
         layout.prop(props, "remove_slab")
         layout.prop(props, "show_advanced", icon="TRIA_DOWN" if props.show_advanced else "TRIA_RIGHT", emboss=False)
         if props.show_advanced:
-            layout.prop(props, "model")
-            layout.prop(props, "image_model")
             layout.prop(props, "matte_url")
         row = layout.row()
         row.enabled = not props.busy

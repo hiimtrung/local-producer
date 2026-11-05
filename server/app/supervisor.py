@@ -152,38 +152,6 @@ def remove_runtime_json_if_matching(runtime_file: Path, pid: int) -> bool:
         return False
 
 
-def terminate_process_group(pgid: int, timeout_s: float = 10.0) -> None:
-    """Terminate all processes in the given process group.
-
-    Sends SIGTERM to the process group, waits up to timeout_s for all processes
-    in the group to exit, and sends SIGKILL if any remain.
-    """
-    if not hasattr(os, "killpg"):
-        return
-
-    try:
-        os.killpg(pgid, signal.SIGTERM)
-    except ProcessLookupError:
-        return
-    except OSError:
-        pass
-
-    deadline = time.monotonic() + timeout_s
-    while time.monotonic() < deadline:
-        try:
-            os.killpg(pgid, 0)
-        except ProcessLookupError:
-            return
-        except OSError:
-            pass
-        time.sleep(0.05)
-
-    try:
-        os.killpg(pgid, signal.SIGKILL)
-    except (ProcessLookupError, OSError):
-        pass
-
-
 def shutdown_children(children: list[subprocess.Popen[str]], timeout_s: float = 10.0) -> None:
     """Terminate and reap child processes and their process groups."""
     active = [c for c in children if c.poll() is None]

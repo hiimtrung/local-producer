@@ -1,6 +1,5 @@
-"""Server API (server/app) with fake CLIs: jobs, validation, uploads, compat endpoints, auth, config, add-on."""
+"""Server API (server/app) with fake CLIs: jobs, validation, uploads, auth, config, add-on."""
 
-import base64
 import io
 import json
 import os
@@ -206,34 +205,6 @@ def test_progress_parsing():
     assert p.estimate() == pytest.approx((3 + 0.5) / 7)
     pipeline.parse_progress("[1/6] preprocess /data/jobs/abc/input.png (512)", p)
     assert p.stage == "Preprocess (512)"
-
-
-# ---------------------------------------------------------------- add-on compatible endpoints
-
-
-def test_compat_text_to_image_returns_b64_png(server_env):
-    c, calls = server_env
-    r = c.post("/v1/images/generations", json={"prompt": "a cat", "size": "768x1024", "steps": 3, "model": "x"})
-    assert r.status_code == 200
-    assert base64.b64decode(r.json()["data"][0]["b64_json"]).startswith(b"\x89PNG")
-    argv = calls()[-1]
-    assert argv[argv.index("-p") + 1] == "a cat"  # the add-on composes its own prompt
-    assert argv[argv.index("-W") + 1] == "768"
-
-
-def test_compat_edit_and_mesh(server_env):
-    c, calls = server_env
-    r = c.post("/v1/images/edits", data={"prompt": "A-pose", "steps": "3"}, files={"image": ("i.png", png_bytes())})
-    assert r.status_code == 200 and "-r" in calls()[-1]
-    img = base64.b64encode(png_bytes("RGBA")).decode()
-    r = c.post("/v1/3d/generations", json={"image": img, "resolution": 512, "steps": 6, "seed": 1})
-    assert r.status_code == 200 and r.content == b"glTF"
-    jpeg = io.BytesIO()
-    from PIL import Image
-
-    Image.new("RGB", (4, 4)).save(jpeg, "JPEG")
-    bad = c.post("/v1/3d/generations", json={"image": base64.b64encode(jpeg.getvalue()).decode()})
-    assert bad.status_code == 400
 
 
 # ---------------------------------------------------------------- security, config, add-on, system

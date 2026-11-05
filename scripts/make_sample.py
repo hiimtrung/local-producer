@@ -10,13 +10,14 @@ usage: make_sample.py [out_prefix] [seed]   (default: blender/local_producer/sam
        PROMPT=... for another subject; SERVER_TOKEN is sent when set.
 """
 
-import base64
-import json
 import os
 import pathlib
 import sys
 import time
 import urllib.request
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "blender/local_producer"))
+import client  # noqa: E402  (the add-on's HTTP client; no bpy)
 
 SERVER = "http://127.0.0.1:13305"
 MATTE = "http://127.0.0.1:8083"
@@ -28,12 +29,11 @@ PROMPT = (
 )
 
 PROMPT = os.environ.get("PROMPT", PROMPT)  # other subjects, e.g. test inputs
+client.auth["token"] = os.environ.get("SERVER_TOKEN", "")
 
 
 def post(url, data, ctype, timeout=1800):
     headers = {"Content-Type": ctype}
-    if os.environ.get("SERVER_TOKEN"):
-        headers["Authorization"] = f"Bearer {os.environ['SERVER_TOKEN']}"
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read()
@@ -43,19 +43,7 @@ DEFAULT_OUT = pathlib.Path(__file__).resolve().parents[1] / "blender/local_produ
 out = sys.argv[1] if len(sys.argv) > 1 else str(DEFAULT_OUT)
 seed = int(sys.argv[2]) if len(sys.argv) > 2 else 7
 t = time.time()
-body = json.dumps(
-    {
-        "model": "Flux-2-Klein-4B",
-        "prompt": PROMPT,
-        "size": "1024x1024",
-        "steps": 4,
-        "cfg_scale": 1.0,
-        "seed": seed,
-        "response_format": "b64_json",
-    }
-).encode()
-resp = json.loads(post(f"{SERVER}/v1/images/generations", body, "application/json"))
-raw = base64.b64decode(resp["data"][0]["b64_json"])
+raw = client.request_image(SERVER, PROMPT, seed=seed, steps=4, size=1024)
 with open(f"{out}_raw.png", "wb") as f:
     f.write(raw)
 print(f"generated in {time.time() - t:.1f} s", flush=True)

@@ -74,4 +74,4 @@ payloads across module boundaries (use a pydantic model or a `TypedDict`).
 - A new platform (CUDA, MLX): a package in `engines.json` with its `platform` and `runners`, and the stack's
   preflight / memory probe in `backends.py`; pipelines stay as they are when the runners keep their command line.
 - Changing the add-on: bump `version` in `blender_manifest.toml` and `bl_info["version"]` together (a test checks
-  they match), so Blender offers the update; keep the request format compatible with the server.
+  they match), so Blender offers the update; the add-on talks to the server only through the public job API (`/v1/jobs`, `/v1/uploads`), so keep it compatible.

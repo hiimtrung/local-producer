@@ -19,19 +19,6 @@ export interface AddonInfo {
   repository: string;
 }
 
-export interface Body_images_edits_v1_images_edits_post {
-  image: string;
-  prompt: string;
-  /** (default "1024x1024") */
-  size?: string;
-  /** (default 4) */
-  steps?: number;
-  /** (default 1.0) */
-  cfg_scale?: number;
-  /** (default 42) */
-  seed?: number;
-}
-
 export interface Body_upload_v1_uploads_post {
   file: string;
 }
@@ -208,33 +195,12 @@ export interface HostInfo {
   gpu_targets: string[];
 }
 
-export interface ImageData {
-  b64_json: string;
-}
-
 /** An uploaded image ({"upload": id}) or a result of an earlier job ({"job": id, "file": "image.png"}). */
 export interface ImageRef {
   upload?: string | null;
   job?: string | null;
   /** (default "image.png") */
   file?: string;
-}
-
-export interface ImagesRequest {
-  prompt: string;
-  /** (default "1024x1024") */
-  size?: string;
-  /** (default 4) */
-  steps?: number;
-  /** (default 1.0) */
-  cfg_scale?: number;
-  /** (default 42) */
-  seed?: number;
-}
-
-export interface ImagesResponse {
-  created: number;
-  data: ImageData[];
 }
 
 export interface InstalledPackage {
@@ -355,16 +321,6 @@ export interface MeshParams {
   max_tokens?: number | null;
   /** A TRELLIS.2 model id (Models page); empty = the default one */
   model?: string | null;
-}
-
-export interface MeshRequest {
-  image: string;
-  /** (default 42) */
-  seed?: number;
-  /** (default 512) */
-  resolution?: 512 | 1024 | 1536;
-  bg_removal?: "auto" | "birefnet" | "threshold" | null;
-  steps?: number | null;
 }
 
 export interface ModelCheck {

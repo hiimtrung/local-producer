@@ -46,7 +46,7 @@ See the canonical architecture documents for full details:
 
 ### Assets and tooling
 - **Web UI:** Served at `http://127.0.0.1:13305` from `web/dist` (TypeScript strict + React 18 + Lucent design system; `make web-build`).
-- **Blender add-on:** `blender/local_producer/` (v0.15.0). Connects to loopback API, imports textured GLB models, and tracks live progress.
+- **Blender add-on:** `blender/local_producer/` (v0.16.0). Connects to loopback API, imports textured GLB models, and tracks live progress.
 - **Test input for 3D runs:** `blender/local_producer/samples/cat.png` (seed 1234, res 512). End-to-end check: `make smoke`.
 - **Background removal:** `server/matte_server.py` (`rembg isnet-general-use` on CPU) on `127.0.0.1:8083`.
 - **Blender MCP:** `tools/blmcp/` installs Blender Lab's MCP server into `tools/blmcp/.venv` to drive Blender programmatically.

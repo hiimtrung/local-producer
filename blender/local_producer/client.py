@@ -4,15 +4,13 @@ All calls raise RuntimeError with a short message on failure. If the server was 
 token into `auth["token"]` (the add-on copies its "Server Token" preference there before each job).
 """
 
-import base64
 import json
+import time
 import urllib.error
 import urllib.request
 import uuid
 
 REQUEST_TIMEOUT_S = 3600  # res 512 takes ~4-5 min on the Radeon 780M, res 1024 ~19 min (raise for 1536: ~53 min)
-DEFAULT_MODEL = "TRELLIS-3D"  # ignored by the server; kept for the request format it shares with AMD Lemonade
-DEFAULT_IMAGE_MODEL = "Flux-2-Klein-4B"
 auth = {"token": ""}
 
 
@@ -34,90 +32,70 @@ def _call(url, data, ctype, timeout, what, method="POST"):
         raise RuntimeError(f"cannot reach {what} at {url.split('/v1')[0]}: {e.reason}") from e
 
 
-def request_image(api_url, prompt, model=DEFAULT_IMAGE_MODEL, seed=7, steps=4, size=1024, timeout=REQUEST_TIMEOUT_S):
-    """Text-to-image via /v1/images/generations; returns PNG bytes."""
-    payload = {
-        "model": model,
-        "prompt": prompt,
-        "size": f"{size}x{size}",
-        "steps": steps,
-        "cfg_scale": 1.0,
-        "seed": seed,
-        "response_format": "b64_json",
-    }
-    body = _call(
-        api_url.rstrip("/") + "/v1/images/generations",
-        json.dumps(payload).encode(),
-        "application/json",
-        timeout,
-        "the server",
-    )
-    return base64.b64decode(json.loads(body)["data"][0]["b64_json"])
+def _json(api_url, path, payload=None, timeout=10, method="POST"):
+    data = None if payload is None else json.dumps(payload).encode()
+    return json.loads(_call(api_url.rstrip("/") + path, data, "application/json", timeout, "the server", method))
 
 
-def request_edit(
-    api_url, png_bytes, prompt, model=DEFAULT_IMAGE_MODEL, seed=7, steps=4, size=1024, timeout=REQUEST_TIMEOUT_S
-):
-    """Image edit via /v1/images/edits (multipart); returns PNG bytes."""
+def _upload(api_url, png_bytes, timeout=60):
+    """POST /v1/uploads (multipart); returns the upload id."""
     boundary = uuid.uuid4().hex
-    fields = {
-        "model": model,
-        "prompt": prompt,
-        "size": f"{size}x{size}",
-        "steps": str(steps),
-        "cfg_scale": "1.0",
-        "seed": str(seed),
-        "response_format": "b64_json",
-    }
-    parts = [
-        f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode() for k, v in fields.items()
-    ]
-    parts.append(
-        f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="image.png"\r\n'
+    body = (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="image.png"\r\n'
         f"Content-Type: image/png\r\n\r\n".encode()
         + png_bytes
-        + b"\r\n"
+        + f"\r\n--{boundary}--\r\n".encode()
     )
-    parts.append(f"--{boundary}--\r\n".encode())
-    body = _call(
-        api_url.rstrip("/") + "/v1/images/edits",
-        b"".join(parts),
-        f"multipart/form-data; boundary={boundary}",
-        timeout,
-        "the server",
-    )
-    return base64.b64decode(json.loads(body)["data"][0]["b64_json"])
+    ctype = f"multipart/form-data; boundary={boundary}"
+    reply = _call(api_url.rstrip("/") + "/v1/uploads", body, ctype, timeout, "the server")
+    return json.loads(reply)["id"]
 
 
-def request_glb(
-    api_url,
-    image_path,
-    model=DEFAULT_MODEL,
-    seed=1234,
-    resolution=512,
-    bg_removal="auto",
-    steps=None,
-    timeout=REQUEST_TIMEOUT_S,
-):
-    """POST the PNG to /v1/3d/generations and return the GLB bytes.
+def run_job(api_url, kind, params, output, timeout=REQUEST_TIMEOUT_S, poll_s=1.0):
+    """Queue a job (POST /v1/jobs), wait until it has finished (GET /v1/jobs/<id>), return the bytes of `output`."""
+    job = _json(api_url, "/v1/jobs", {"kind": kind, "params": params})
+    deadline = time.monotonic() + timeout
+    while job["state"] in ("queued", "running"):
+        if time.monotonic() > deadline:
+            raise RuntimeError(f"{kind} did not finish within {timeout} s")
+        time.sleep(poll_s)
+        job = _json(api_url, f"/v1/jobs/{job['id']}", method="GET")
+    if job["state"] != "done":
+        raise RuntimeError(f"{kind} {job['state']}: {job.get('error') or 'no detail'}")
+    return job_file(api_url, job["id"], output)
 
-    bg_removal: "auto" (let the server decide; a real alpha mask is kept), "birefnet" or "threshold".
+
+def request_image(api_url, prompt, seed=7, steps=4, size=1024, timeout=REQUEST_TIMEOUT_S):
+    """Text-to-image (pipeline image.generate); returns PNG bytes."""
+    params = {"prompt": prompt, "framing": None, "width": size, "height": size, "steps": steps, "seed": seed}
+    return run_job(api_url, "image.generate", params, "image.png", timeout)
+
+
+def request_edit(api_url, png_bytes, prompt, seed=7, steps=4, size=1024, timeout=REQUEST_TIMEOUT_S):
+    """Image edit with a free instruction (pipeline image.edit); returns PNG bytes."""
+    params = {
+        "image": {"upload": _upload(api_url, png_bytes)},
+        "preset": "custom",
+        "prompt": prompt,
+        "width": size,
+        "height": size,
+        "steps": steps,
+        "seed": seed,
+    }
+    return run_job(api_url, "image.edit", params, "image.png", timeout)
+
+
+def request_glb(api_url, image_path, seed=1234, resolution=512, matting="none", steps=None, timeout=REQUEST_TIMEOUT_S):
+    """Image to textured mesh (pipeline mesh.generate); returns the GLB bytes.
+
+    matting: "none" (the image is used as sent, e.g. already cut out by the matting server) or "auto" (the server
+    removes the background unless the image has transparency).
     steps: flow steps per stage (None = the server's default, 8).
     """
     with open(image_path, "rb") as f:
-        image = base64.b64encode(f.read()).decode()
-    payload = {"model": model, "image": image, "seed": seed, "resolution": resolution}
-    if bg_removal != "auto":
-        payload["bg_removal"] = bg_removal
-    if steps:
-        payload["steps"] = steps
-    return _call(
-        api_url.rstrip("/") + "/v1/3d/generations",
-        json.dumps(payload).encode(),
-        "application/json",
-        timeout,
-        "the server",
-    )
+        upload = _upload(api_url, f.read())
+    params = {"image": {"upload": upload}, "matting": matting, "resolution": resolution, "seed": seed, "steps": steps}
+    return run_job(api_url, "mesh.generate", params, "model.glb", timeout)
 
 
 def matte_image(matte_url, image_path, model="isnet-general-use", timeout=120):
