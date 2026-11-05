@@ -57,6 +57,11 @@ def log_line(
             f.write(entry)
             f.flush()
         if echo_stderr:
+            try:
+                if hasattr(sys.stderr, "fileno") and os.path.sameopenfile(sys.stderr.fileno(), f.fileno()):
+                    return
+            except (OSError, ValueError):
+                pass
             sys.stderr.write(entry)
             sys.stderr.flush()
 

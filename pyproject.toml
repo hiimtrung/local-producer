@@ -64,7 +64,7 @@ strict = true
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
 mypy_path = "server"
-files = ["server/app", "server/matte_server.py", "scripts/gen_api_types.py"]
+files = ["server/app", "server/matte_server.py", "scripts/gen_api_types.py", "scripts/lp.py"]
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]

@@ -1,0 +1,38 @@
+#!/bin/sh
+set -eu
+
+here="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
+
+if [ -n "${LP_HOME:-}" ]; then
+  lp_root="$LP_HOME"
+elif [ "$(uname -s)" = "Darwin" ]; then
+  lp_root="$HOME/Library/Application Support/local-producer"
+else
+  lp_root="${XDG_DATA_HOME:-$HOME/.local/share}/local-producer"
+fi
+
+is_py312() {
+  "$1" -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)" 2>/dev/null
+}
+
+py=""
+
+if [ -n "${LP_PYTHON:-}" ] && [ -x "${LP_PYTHON:-}" ]; then
+  py="$LP_PYTHON"
+elif [ -x "$lp_root/venv/bin/python" ]; then
+  py="$lp_root/venv/bin/python"
+elif command -v python3 >/dev/null 2>&1 && is_py312 python3; then
+  py="python3"
+elif command -v uv >/dev/null 2>&1; then
+  uv_py="$(uv python find 3.12 2>/dev/null || true)"
+  if [ -n "$uv_py" ] && [ -x "$uv_py" ]; then
+    py="$uv_py"
+  fi
+fi
+
+if [ -z "$py" ]; then
+  echo "lp needs Python 3.12; run 'uv python install 3.12' or set LP_PYTHON" >&2
+  exit 1
+fi
+
+exec "$py" "$here/lp.py" "$@"
