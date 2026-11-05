@@ -6,6 +6,28 @@ Machine (unless an entry says otherwise): ThinkPad P14s Gen 4, Ryzen 7 PRO 7840U
 
 ---
 
+## 2026-11-05 — P1: one native runtime contract on macOS and Linux, container deleted
+
+- **Goal:** phase P1 of the desktop architecture plan (`docs/plans/2026-11-p1-native-runtime.md`). Unify server execution across macOS and Linux into a single native runtime managed by `scripts/lp`; delete the container tooling (`Containerfile`, `entrypoint.sh`, `run-server.sh`, volumes, hadolint); enforce child process isolation with atomic discovery (`runtime.json`, mode 0600), sandbox isolation for engine CLIs, and cross-platform locked dependencies.
+- **Measurements (Apple M4, 16 GiB unified memory, macOS 27.2):**
+  | Measurement | Method | Old | New (P1) | Delta / Notes |
+  | :--- | :--- | :--- | :--- | :--- |
+  | Startup (warm matte) | command to `ready:`, n = 3 | 2.2133 s (2.2045–2.2265 s) | 2.6638 s (2.6519–3.1772 s) | +0.45 s (supervisor isolation & atomic discovery) |
+  | Startup (`--no-matte`) | command to `ready:`, n = 3 | — | 1.1047 s (1.1018–1.1075 s) | Sub-1.2s API startup |
+  | Shell lines removed | `wc -l` | 286 sh + 45 Containerfile (331 total) | 38 sh + 696 Python (734 total) | -86.7% shell scripts (-248 lines sh) |
+  | Test count | `uv run pytest` | 136 passed | 181 passed | +45 tests (+33%) |
+  | Clean `lp setup` | wall time / size, n = 1 | — | 0.380 s / 391 MB | 43 packages synced into runtime venv |
+  | macOS path migration | `lp setup --migrate`, 10MB test | — | 10,485,760 bytes moved, 0 symlinks | Re-run refused on non-empty destination |
+  | Linux container / bwrap | native Linux host | not measured | not measured | Written exception: no Linux host available (host is M4) |
+- **What changed:**
+  - One supervisor (`server/app/supervisor.py`) starts API (`127.0.0.1:13305`) and matting worker (`127.0.0.1:8083`) in isolated process groups, logs streams to `<data>/runtime.log`, and publishes `<data>/runtime.json` atomically upon passing health checks.
+  - One CLI (`scripts/lp` POSIX sh bootstrap + `scripts/lp.py` Python 3.12 stdlib) replaces all former bash scripts and coordinates setup, background execution, shutdown, diagnostics, and migration without container tools.
+  - One per-platform sandbox module (`server/app/engines/sandbox.py`): `sandbox-exec` on macOS, `bwrap --unshare-net` on Linux (refusing engine execution with actionable error if sandbox fails).
+  - Pinned platform locks: `requirements.linux.txt` and `requirements.macos.txt` synchronized via `scripts/lock-requirements.sh` and enforced by `make lock-check` in CI.
+  - Container removal: `Containerfile`, `.containerignore`, `.hadolint.yaml`, `entrypoint.sh`, and `run-server.sh` deleted; verified via `make check-removal`.
+  - Layered documentation: 10 new architecture/operations/development/reference pages added; `storage.md` and root files updated.
+- **Verification:** `make check` green (pre-commit, `docs-check` 25 pages, `mypy --strict` 39 files, `tsc`, 181 tests, `lock-check`, `check-removal`, `web-build`).
+
 ## 2026-11-05 — Documentation restructured into a layered `docs/` tree
 
 - **Goal:** one canonical page per topic instead of a front page, an agent file and a 1,300-line changelog all
