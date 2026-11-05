@@ -13,6 +13,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from app.runtime_env import Layout
+
 MAX_IMAGE_BYTES = 32 * 2**20
 MAX_BODY_BYTES = 48 * 2**20  # base64 of a 32 MiB image plus JSON
 MAX_PROMPT_CHARS = 4000
@@ -27,15 +29,23 @@ class Paths:
     library  job results and uploads, what the Library shows (a directory on the host disk)
     data     server state: runtime config and logs (a directory on the host disk, next to the library)"""
 
-    models: str = field(default_factory=lambda: os.environ.get("MODELS_DIR", "/models"))
-    engines: str = field(default_factory=lambda: os.environ.get("ENGINES_DIR", "/engines"))
-    library: str = field(default_factory=lambda: os.environ.get("LIBRARY_DIR", "/library"))
-    data: str = field(default_factory=lambda: os.environ.get("DATA_DIR", "/data"))
+    models: str = field(default_factory=lambda: os.environ.get("MODELS_DIR", str(Layout.resolve().models)))
+    engines: str = field(default_factory=lambda: os.environ.get("ENGINES_DIR", str(Layout.resolve().engines)))
+    library: str = field(default_factory=lambda: os.environ.get("LIBRARY_DIR", str(Layout.resolve().library)))
+    data: str = field(default_factory=lambda: os.environ.get("DATA_DIR", str(Layout.resolve().data)))
     app: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # .../server (or /opt/lp/server)
 
     @property
     def log(self) -> str:
         return os.path.join(self.data, "server.log")
+
+    @property
+    def runtime(self) -> str:
+        return os.path.join(self.data, "runtime.json")
+
+    @property
+    def runtime_log(self) -> str:
+        return os.path.join(self.data, "runtime.log")
 
     @property
     def jobs(self) -> str:
