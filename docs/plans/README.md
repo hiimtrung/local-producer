@@ -2,7 +2,7 @@
 
 | | |
 | :--- | :--- |
-| **Status** | Active — P1 is ready for execution; later phases are not written yet |
+| **Status** | Active — P1 landed; P2 plan will be written upon acceptance of P1 |
 | **Owner** | maintainer (`@hiimtrung`) |
 | **Last verified** | 2026-11-05 |
 | **Applies to** | work in progress |
@@ -24,7 +24,7 @@ Rules:
 
 | Plan | Phase | Status | Depends on |
 | :--- | :--- | :--- | :--- |
-| [`2026-11-p1-native-runtime.md`](./2026-11-p1-native-runtime.md) | P1 — one contract, container deleted (no GPU) | Ready for execution | Nothing; starts from `main` at `8afc01a` or later |
+| [`../analysis/2026-11-p1-native-runtime.md`](../analysis/2026-11-p1-native-runtime.md) | P1 — one contract, container deleted (no GPU) | Landed (moved to `analysis/`) | Completed on 2026-11-05 |
 
 Later phases (P2 engine artifacts and the compatibility scan, P3 Tauri shell, P4 onboarding, P5 distribution, P6 Linux
 desktop) are defined in the architecture analysis and get their own plan when the previous phase is accepted.

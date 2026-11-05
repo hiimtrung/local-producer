@@ -35,7 +35,7 @@ See the canonical architecture documents for full details:
 | Runtime environment and CLI contract | [`docs/architecture/runtime-contract.md`](docs/architecture/runtime-contract.md) |
 | Process sandboxing and security model | [`docs/architecture/security-model.md`](docs/architecture/security-model.md) |
 | Native data root and storage locations | [`docs/reference/storage.md`](docs/reference/storage.md) |
-| P1 implementation plan and acceptance | [`docs/plans/2026-11-p1-native-runtime.md`](docs/plans/2026-11-p1-native-runtime.md) |
+| P1 implementation plan and acceptance | [`docs/analysis/2026-11-p1-native-runtime.md`](docs/analysis/2026-11-p1-native-runtime.md) |
 
 ### Summary of the runtime today
 - **Supervisor (`server/app/supervisor.py`):** Starts and supervises the API service (`app.main`, port 13305 or ephemeral fallback) and background matting worker (`matte_server.py`, port 8083) on `127.0.0.1`.

@@ -2,17 +2,17 @@
 
 | | |
 | :--- | :--- |
-| **Status** | Ready for execution — no decision is open; this file is the task list |
+| **Status** | Completed — phase P1 verified and accepted (2026-11-05); preserved as a dated record |
 | **Owner** | maintainer (`@hiimtrung`); executed by the assigned agent |
-| **Last verified** | 2026-11-05 (written against `main` at `8afc01a`) |
-| **Applies to** | phase P1 of [`../analysis/2026-11-desktop-architecture.md`](../analysis/2026-11-desktop-architecture.md) |
+| **Last verified** | 2026-11-05 |
+| **Applies to** | phase P1 of [`./2026-11-desktop-architecture.md`](./2026-11-desktop-architecture.md) |
 
 ## 1. How to use this document
 
 Read, in this order:
 
 1. [`../../AGENTS.md`](../../AGENTS.md) — rules, hardware, pitfalls. They are not negotiable.
-2. [`../analysis/2026-11-desktop-architecture.md`](../analysis/2026-11-desktop-architecture.md) §3 (target
+2. [`./2026-11-desktop-architecture.md`](./2026-11-desktop-architecture.md) §3 (target
    architecture) and §9 (roadmap). This plan implements **P1 only**; it does not restate the reasoning.
 3. ADRs [`0002`](../adr/0002-native-runtime-no-containers.md) and
    [`0005`](../adr/0005-loopback-only-token.md) — the two decisions this phase makes real.

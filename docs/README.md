@@ -37,8 +37,8 @@ and **analysis** (dated measurement reports). Start with the question you have, 
 | Development | "how do I work on it?" | `development/` | active — setup and testing landed with P1 |
 | Reference | "what are the exact paths, fields, endpoints?" | `reference/` | active — storage, config, and glossary landed with P1 |
 | Decisions | "why this and not that?" | [`adr/`](./adr/README.md) | ADR 0001–0006 exist |
-| Analysis | dated studies, not contracts | `analysis/` | two studies exist |
-| Plans | "what is being built now, and how do we know it is done?" | [`plans/`](./plans/README.md) | P1 is ready for execution |
+| Analysis | dated studies, not contracts | `analysis/` | three studies and records exist |
+| Plans | "what is being built now, and how do we know it is done?" | [`plans/`](./plans/README.md) | P1 landed; P2 plan pending |
 | Archive | superseded documents, kept for their reasoning | `archive/` | two files, both marked Superseded |
 
 ### Architecture
@@ -70,11 +70,12 @@ and **analysis** (dated measurement reports). Start with the question you have, 
   native on both platforms, shipped as a Tauri app; phases and acceptance criteria.
 - [`analysis/2026-11-performance-bottlenecks.md`](./analysis/2026-11-performance-bottlenecks.md) — ranked GPU and UI
   bottlenecks with the measurements behind them.
+- [`analysis/2026-11-p1-native-runtime.md`](./analysis/2026-11-p1-native-runtime.md) — dated record of the P1 native runtime
+  execution plan and acceptance checklist (completed 2026-11-05).
 
 ### Plans
 
-- [`plans/2026-11-p1-native-runtime.md`](./plans/2026-11-p1-native-runtime.md) — P1: supervisor, `lp`, locks, container
-  removal, CI on both OSes, with the acceptance checklist. This is the file to hand to the executing agent.
+- [`plans/`](./plans/README.md) — index of active execution plans. P1 landed (preserved in `analysis/`); P2 plan pending.
 
 ### Archive
 
