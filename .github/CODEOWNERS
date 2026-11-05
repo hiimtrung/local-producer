@@ -1,6 +1,17 @@
-# Reviewers requested automatically for each path; a pull request needs their approval when branch protection
-# requires code-owner review.
-*                     @hiimtrung
-/server/              @hiimtrung
-/server/catalog/      @hiimtrung
-/.github/             @hiimtrung
+# Reviewers per area. The last matching pattern wins.
+# One maintainer today; the per-layer lines exist so that ownership can be delegated
+# by editing this file alone (docs/README.md names the same areas).
+
+*                           @hiimtrung
+
+# Documentation layers (see docs/README.md).
+/docs/                      @hiimtrung
+/docs/adr/                  @hiimtrung
+/docs/architecture/         @hiimtrung
+/docs/operations/           @hiimtrung
+/docs/reference/            @hiimtrung
+
+# Records that must not be edited without the maintainer.
+/CHANGELOG.md               @hiimtrung
+/SECURITY.md                @hiimtrung
+/server/catalog/            @hiimtrung

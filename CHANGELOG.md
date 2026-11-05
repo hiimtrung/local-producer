@@ -6,6 +6,30 @@ Machine (unless an entry says otherwise): ThinkPad P14s Gen 4, Ryzen 7 PRO 7840U
 
 ---
 
+## 2026-11-05 — Documentation restructured into a layered `docs/` tree
+
+- **Goal:** one canonical page per topic instead of a front page, an agent file and a 1,300-line changelog all
+  describing the architecture; make docs rot a CI failure rather than a slow drift.
+- **Tree:** `docs/` with Diátaxis layers (`architecture/`, `operations/`, `development/`, `reference/`) plus
+  `adr/`, `analysis/` and `archive/`; `docs/README.md` is the index and the routing table. Moved with history:
+  `local-producer.md` -> `docs/archive/local-producer-v2.1.md`, `spec-v3-gated-pipeline.md` ->
+  `docs/archive/spec-v3-gated-pipeline.md`, `models/README.md` -> `docs/reference/storage.md` (a three-line pointer
+  stays at `models/README.md`). The two plans written outside the repository (performance bottlenecks, desktop
+  architecture) now live in `docs/analysis/`.
+- **Decisions recorded:** ADR 0001-0006 (trunk-based `main`, native runtime without containers, Tauri v2 shell, one
+  baseline engine artifact per OS with a runtime compatibility scan, loopback-only server with a token on by default,
+  documentation as a layered tree checked by CI). Each states the rejected alternatives and what would reopen it.
+- **Enforcement:** `scripts/check_docs.py` (`make docs-check`, part of `make check` and CI) fails on a page without the
+  header table (`Status`, `Owner`, `Last verified`), an orphan page, a dead relative link or `#anchor`, a missing or
+  duplicated `H1`, Vietnamese/CJK text, and an ADR missing from its index. Tested by breaking each rule; 12 pages pass.
+  `.github/CODEOWNERS` maps the layers; the PR template now asks for the canonical page.
+- **Not written yet:** the architecture, operations, development and remaining reference pages land with P1, the
+  native-runtime work, because writing them now would document a container layout that is about to be deleted.
+  `AGENTS.md` still carries the old architecture prose for the same reason; it is reduced to rules plus links in P1.
+- **Conclusion:** `make check` green (136 tests, mypy --strict, tsc, web build, docs-check). No runtime code changed.
+
+---
+
 ## 2026-11-03 — macOS (Apple silicon): native server and a Metal engine package
 
 - **Goal (maintainer request):** run the server on an Apple M4 Mac (4P+6E CPU cores, 10-core GPU, 16 GiB unified

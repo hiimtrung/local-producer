@@ -29,7 +29,7 @@ res 512 in ~4.5 min (res 1024 ~19 min); a whole character in ~8 min (Fast preset
 | `tests/` | unit tests (no GPU, no network): API with a fake engine package, engines, model setup, prompts, add-on client, web static checks |
 | `tools/blmcp/` | installs Blender Lab's MCP server so an agent can drive a running Blender |
 | `blender/experiments/` | one-off Blender scripts run over MCP (auto-rig, fight animation, texture reprojection) |
-| `models/README.md` | where the server keeps weights, engines, results and logs, and where each download comes from |
+| `docs/` | the documentation tree: `reference/` (exact paths and values), `adr/` (why this and not that), `analysis/` (dated studies), `archive/` (superseded specs); start at `docs/README.md` |
 
 ## Requirements
 
@@ -82,11 +82,13 @@ Download Models, generate; the Library panel lists the server's finished 3D mode
 
 | Document | What |
 | :--- | :--- |
+| [`docs/README.md`](docs/README.md) | index of the documentation tree; start here |
+| [`docs/reference/storage.md`](docs/reference/storage.md) | where the server keeps weights, engines, results and logs, and the source of each download |
+| [`docs/adr/`](docs/adr/README.md) | architecture decision records: one decision per page, with the rejected alternatives |
+| [`docs/analysis/`](docs/analysis/2026-11-desktop-architecture.md) | dated studies: the desktop architecture and the performance bottlenecks |
+| [`docs/archive/`](docs/archive/local-producer-v2.1.md) | the original specification (v2.1) and the v3 proposal, both superseded |
 | [`AGENTS.md`](AGENTS.md) | working conventions (also for AI coding agents) and the current state of every part |
 | [`CHANGELOG.md`](CHANGELOG.md) | the research log: every experiment with its setup, numbers and conclusion |
-| [`models/README.md`](models/README.md) | where the server keeps weights, engines, results and logs, and the source of each download |
-| [`local-producer.md`](local-producer.md) | the original video-pipeline specification (v2.1, partly superseded) |
-| [`spec-v3-gated-pipeline.md`](spec-v3-gated-pipeline.md) | a proposal for the next video pipeline (not built yet) |
 
 ## Contributing and security
 

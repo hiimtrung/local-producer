@@ -3,7 +3,7 @@ SHELL := /bin/bash
 IMAGE ?= localhost/local-producer-gpu
 NAME ?= local-producer-gpu
 
-.PHONY: help dev lint typecheck api-types web-install web-build web-tokens web-dev format test check addon server-build server-up server-down setup engines engines-status models models-status models-verify smoke
+.PHONY: help dev lint typecheck api-types web-install web-build web-tokens web-dev format test check docs-check addon server-build server-up server-down setup engines engines-status models models-status models-verify smoke
 
 # A one-off container on the server image with the volumes, host directories and GPU devices (to detect the GPU)
 # of the server (scripts/lp-env.sh). macOS: the native server's Python with the same environment (scripts/run-native.sh).
@@ -57,7 +57,10 @@ test:  ## unit tests (no GPU, no network) and generated-file checks
 	uv run pytest
 	uv run python scripts/gen_tokens_css.py --check
 
-check: lint typecheck test web-build  ## everything CI checks
+docs-check:  ## documentation tree: header tables, orphans, links and anchors, duplicate H1, English only
+	uv run python scripts/check_docs.py
+
+check: lint docs-check typecheck test web-build  ## everything CI checks
 
 addon:  ## build dist/local_producer.zip
 	blender/build_addon.sh

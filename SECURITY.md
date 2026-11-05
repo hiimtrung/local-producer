@@ -31,5 +31,5 @@ explicit approval in the pull request.
 | Leaked secrets | gitleaks runs in pre-commit and CI; `.env`, keys and certificates are git-ignored. | `.pre-commit-config.yaml`, `.gitignore` |
 | Generated code | Containers that run generated code (e.g. LLM-written scene code, planned) always use `--network none`. | `AGENTS.md` |
 
-Model licences: the weights are third-party (`models/README.md` names each source); they are downloaded by each
+Model licences: the weights are third-party (`docs/reference/storage.md` names each source); they are downloaded by each
 user and never redistributed by this repository.
